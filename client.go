@@ -5,25 +5,25 @@ import (
 	"os"
 )
 
-func storage_upload(filename string) error {
+func storageUpload(name string) error {
 	return nil
 }
 
-func storage_download(filename string) error {
+func storageDownload(name string) error {
 	return nil
 }
 
-func storage(action, filename string) {
+func storage(action, name string) {
 	switch action {
 	case "h":
 		fmt.Println("up or down and filename")
 	case "u":
-		err := storage_upload(filename)
+		err := storageUpload(name)
 		if err != nil {
 			panic("storage upload failure")
 		}
 	case "d":
-		err := storage_download(filename)
+		err := storageDownload(name)
 		if err != nil {
 			panic("storage download failure")
 		}
