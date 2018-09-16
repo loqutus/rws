@@ -18,6 +18,7 @@ func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println("file reading error: %s", filename)
 	}
+	rsp, err := http.Post(url, "application/x-www-form-urlencoded", body)
 	w.Write(dat)
 }
 

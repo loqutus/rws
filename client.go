@@ -1,28 +1,56 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 )
 
+const hostname = "http://localhost:8888"
+const dataDir = "data"
+
 func storageUpload(name string) error {
+	dat, err1 := ioutil.ReadFile(fmt.Sprintf("%s/%s", dataDir, name))
+	if err1 != nil {
+		panic("file read error")
+	}
+	url := fmt.Sprintf("%s/storage_upload/%s", hostname, name)
+	body := bytes.NewBuffer(dat)
+	_, err2 := http.Post(url, "application/octet-stream", body)
+	if err2 != nil {
+		panic("upload error")
+	}
 	return nil
 }
 
 func storageDownload(name string) error {
+	dat, err1 := http.Get(fmt.Sprintf("%s/storage_download/%s", hostname, name))
+	if err1 != nil {
+		panic("download error")
+	}
+	bodyBytes, err2 := ioutil.ReadAll(dat.Body)
+	if err2 != nil {
+		panic("download error")
+	}
+	err3 := ioutil.WriteFile(fmt.Sprintf("%s/%s", dataDir, name), []byte(bodyBytes), 0644)
+	if err3 != nil {
+		panic("file write error")
+	}
 	return nil
 }
 
 func storage(action, name string) {
 	switch action {
-	case "h":
-		fmt.Println("up or down and filename")
-	case "u":
+	case "help":
+		fmt.Println("upload or download and filename")
+	case "upload":
 		err := storageUpload(name)
 		if err != nil {
 			panic("storage upload failure")
 		}
-	case "d":
+	case "download":
 		err := storageDownload(name)
 		if err != nil {
 			panic("storage download failure")
