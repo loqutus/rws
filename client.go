@@ -30,42 +30,78 @@ func storage(action, filename string) {
 	}
 }
 
-func container_run(name, image string) (string, error) {
-	return "", nil
-}
-
-func container_stop(name string) error {
+func mysqlRun(name string) error {
 	return nil
 }
 
-func container(action, name, image string) {
+func mysqlStop(name string) error {
+	return nil
+}
+
+func mysql(action, name string) {
 	switch action {
-	case "h":
-		fmt.Println("run, stop, name and image if run")
-	case "r":
-		str, err := container_run(name, image)
+	case "help":
+		fmt.Println("run or stop")
+	case "run":
+		err := mysqlRun(name)
 		if err != nil {
-			panic("container run error")
+			panic("mysql run error")
 		}
-		fmt.Println(str)
-	case "s":
-		err := container_stop(name)
+	case "stop":
+		err := mysqlStop(name)
 		if err != nil {
-			panic("container stop error")
+			panic("mysql stop error")
 		}
+	default:
+		fmt.Println("run or stop")
+
 	}
+}
+
+func redisRun(name string) error {
+	return nil
+}
+
+func redisStop(name string) error {
+	return nil
+}
+
+func redis(action, name string) {
+	switch action {
+	case "help":
+		fmt.Println("run or stop")
+	case "run":
+		err := redisRun(name)
+		if err != nil {
+			panic("redis run error")
+		}
+	case "stop":
+		err := redisStop(name)
+		if err != nil {
+			panic("redis stop error")
+		}
+	default:
+		fmt.Println("run or stop")
+
+	}
+}
+
+func printHelp() {
+	fmt.Println("storage, mysql or redis")
 }
 
 func main() {
 	command := os.Args[1]
 	switch command {
-	case "h":
-		fmt.Println("s for storage, c for container, d for database, r for redis, l for load balancer, h for help")
-	case "s":
+	case "help":
+		printHelp()
+	case "storage":
 		storage(os.Args[2], os.Args[3])
-	case "c":
-		container(os.Args[2], os.Args[3], "")
+	case "mysql":
+		mysql(os.Args[2], os.Args[3])
+	case "redis":
+		redis(os.Args[2], os.Args[3])
 	default:
-		fmt.Println("specify s,c,d,r or l")
+		printHelp()
 	}
 }
