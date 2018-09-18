@@ -12,7 +12,7 @@ const hostname = "http://localhost:8888"
 const dataDir = "data"
 
 func storageUpload(name string) error {
-	dat, err1 := ioutil.ReadFile(fmt.Sprintf("%s/%s", dataDir, name))
+	dat, err1 := ioutil.ReadFile(name)
 	if err1 != nil {
 		panic("file read error")
 	}
@@ -26,15 +26,21 @@ func storageUpload(name string) error {
 }
 
 func storageDownload(name string) error {
-	dat, err1 := http.Get(fmt.Sprintf("%s/storage_download/%s", hostname, name))
+	url := fmt.Sprintf("%s/storage_download/%s", hostname, name)
+	fmt.Println(url)
+	dat, err1 := http.Get(url)
 	if err1 != nil {
+		panic("download error")
+	}
+	if dat.StatusCode != 200 {
+		fmt.Println(dat.StatusCode)
 		panic("download error")
 	}
 	bodyBytes, err2 := ioutil.ReadAll(dat.Body)
 	if err2 != nil {
 		panic("download error")
 	}
-	err3 := ioutil.WriteFile(fmt.Sprintf("%s/%s", dataDir, name), []byte(bodyBytes), 0644)
+	err3 := ioutil.WriteFile(name, []byte(bodyBytes), 0644)
 	if err3 != nil {
 		panic("file write error")
 	}
@@ -42,17 +48,23 @@ func storageDownload(name string) error {
 }
 
 func storage(action, name string) {
+	if name == "" {
+		fmt.Println("upload or download")
+		return
+	}
 	switch action {
 	case "help":
 		fmt.Println("upload or download and filename")
 	case "upload":
 		err := storageUpload(name)
 		if err != nil {
+			fmt.Println(err)
 			panic("storage upload failure")
 		}
 	case "download":
 		err := storageDownload(name)
 		if err != nil {
+			fmt.Println(err)
 			panic("storage download failure")
 		}
 	}
@@ -67,6 +79,10 @@ func mysqlStop(name string) error {
 }
 
 func mysql(action, name string) {
+	if name == "" {
+		fmt.Println("run or stop")
+		return
+	}
 	switch action {
 	case "help":
 		fmt.Println("run or stop")
@@ -95,6 +111,10 @@ func redisStop(name string) error {
 }
 
 func redis(action, name string) {
+	if name == "" {
+		fmt.Println("run or stop")
+		return
+	}
 	switch action {
 	case "help":
 		fmt.Println("run or stop")
@@ -124,11 +144,35 @@ func main() {
 	case "help":
 		printHelp()
 	case "storage":
-		storage(os.Args[2], os.Args[3])
+		if len(os.Args) < 4 {
+			if len(os.Args) > 2 {
+				storage(os.Args[2], "")
+			} else {
+				fmt.Println("upload or download and filename")
+			}
+		} else {
+			storage(os.Args[2], os.Args[3])
+		}
 	case "mysql":
-		mysql(os.Args[2], os.Args[3])
+		if len(os.Args) < 4 {
+			if len(os.Args) > 2 {
+				fmt.Println("run or stop")
+				return
+			}
+			mysql(os.Args[2], "")
+		} else {
+			mysql(os.Args[2], os.Args[3])
+		}
 	case "redis":
-		redis(os.Args[2], os.Args[3])
+		if len(os.Args) < 4 {
+			if len(os.Args) > 2 {
+				fmt.Println("run or stop")
+				return
+			}
+			redis(os.Args[2], "")
+		} else {
+			redis(os.Args[2], os.Args[3])
+		}
 	default:
 		printHelp()
 	}

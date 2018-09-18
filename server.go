@@ -7,9 +7,11 @@ import (
 	"strings"
 )
 
-const addr = ":8888"
+const addr = "localhost:8888"
+const dataDir = "data"
 
 func storageUploadHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("storage upload")
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		fmt.Println("request reading error")
@@ -25,8 +27,10 @@ func storageUploadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("storage download")
 	pathSplit := strings.Split(r.URL.Path, "/")
 	filename := pathSplit[len(pathSplit)-1]
+	fmt.Println("download: %s", filename)
 	dat, err1 := ioutil.ReadFile(fmt.Sprintf("data/%s", filename))
 	if err1 != nil {
 		fmt.Println("file reading error: %s", filename)
@@ -36,8 +40,9 @@ func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/storage_upload/*", storageUploadHandler)
-	http.HandleFunc("/storage_download/*", storageDownloadHandler)
+	fmt.Println("starting server")
+	http.HandleFunc("/storage_upload/", storageUploadHandler)
+	http.HandleFunc("/storage_download/", storageDownloadHandler)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		panic(err)
 	}
