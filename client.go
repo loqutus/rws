@@ -71,10 +71,22 @@ func storage(action, name string) {
 }
 
 func mysqlRun(name string) error {
+	url := fmt.Sprintf("%s/mysql_run/%s", hostname, name)
+	body := bytes.NewBuffer([]byte(""))
+	_, err1 := http.Post(url, "application/octet-stream", body)
+	if err1 != nil {
+		panic("run error")
+	}
 	return nil
 }
 
 func mysqlStop(name string) error {
+	url := fmt.Sprintf("%s/mysql_stop/%s", hostname, name)
+	body := bytes.NewBuffer([]byte(""))
+	_, err1 := http.Post(url, "application/octet-stream", body)
+	if err1 != nil {
+		panic("stop error")
+	}
 	return nil
 }
 
