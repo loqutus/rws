@@ -24,7 +24,7 @@ func storageUploadHandler(w http.ResponseWriter, r *http.Request) {
 	filename := pathSplit[len(pathSplit)-1]
 	err3 := ioutil.WriteFile(fmt.Sprintf("%s/%s", dataDir, filename), []byte(body), 0644)
 	if err3 != nil {
-		fmt.Println("fire write error")
+		fmt.Println("file write error")
 		return
 	}
 }
@@ -33,10 +33,10 @@ func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("storage download")
 	pathSplit := strings.Split(r.URL.Path, "/")
 	filename := pathSplit[len(pathSplit)-1]
-	fmt.Println("download: %s", filename)
+	fmt.Println("download: " + filename)
 	dat, err1 := ioutil.ReadFile(fmt.Sprintf("data/%s", filename))
 	if err1 != nil {
-		fmt.Println("file reading error: %s", filename)
+		fmt.Println("file read error: " + filename)
 		return
 	}
 	w.Write(dat)
@@ -47,8 +47,8 @@ func mysqlRunHandler(w http.ResponseWriter, r *http.Request) {
 	pathSplit := strings.Split(r.URL.Path, "/")
 	name := pathSplit[len(pathSplit)-1]
 	fmt.Println(name)
-	cli, err := client.New
-	cli, err := client.NewEnvClient()
+	c := client.WithVersion("1.38")
+	cli, err := client.NewClientWithOpts(c)
 	if err != nil {
 		fmt.Println("mysql run error")
 		fmt.Println(err)

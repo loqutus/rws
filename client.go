@@ -11,6 +11,35 @@ import (
 const hostname = "http://localhost:8888"
 const dataDir = "data"
 
+func list(name string) error {
+	url := fmt.Sprintf("%s/%s_list", name, hostname)
+	body := bytes.NewBuffer([]byte(""))
+	resp, err1 := http.Post(url, "application/octet-stream", body)
+	if err1 != nil {
+		fmt.Println(err1)
+		panic("run error")
+	}
+	defer resp.Body.Close()
+	b, err2 := ioutil.ReadAll(resp.Body)
+	if err2 != nil {
+		fmt.Println(err2)
+		panic("response read error")
+	}
+	fmt.Println(b)
+	return nil
+}
+
+func run(name, t string) error {
+	url := fmt.Sprintf("%s/%s_run/%s", hostname, t, name)
+	body := bytes.NewBuffer([]byte(""))
+	_, err1 := http.Post(url, "application/octet-stream", body)
+	if err1 != nil {
+		fmt.Println(err1)
+		panic("run error")
+	}
+	return nil
+}
+
 func storageUpload(name string) error {
 	dat, err1 := ioutil.ReadFile(name)
 	if err1 != nil {
@@ -38,23 +67,27 @@ func storageDownload(name string) error {
 	}
 	bodyBytes, err2 := ioutil.ReadAll(dat.Body)
 	if err2 != nil {
+		fmt.Println(err2)
 		panic("download error")
 	}
 	err3 := ioutil.WriteFile(name, []byte(bodyBytes), 0644)
 	if err3 != nil {
+		fmt.Println(err3)
 		panic("file write error")
 	}
 	return nil
 }
-
+func storageHelp() {
+	fmt.Println("upload, download or list")
+}
 func storage(action, name string) {
 	if name == "" {
-		fmt.Println("upload or download")
+		storageHelp()
 		return
 	}
 	switch action {
 	case "help":
-		fmt.Println("upload or download and filename")
+		storageHelp()
 	case "upload":
 		err := storageUpload(name)
 		if err != nil {
@@ -71,13 +104,7 @@ func storage(action, name string) {
 }
 
 func mysqlRun(name string) error {
-	url := fmt.Sprintf("%s/mysql_run/%s", hostname, name)
-	body := bytes.NewBuffer([]byte(""))
-	_, err1 := http.Post(url, "application/octet-stream", body)
-	if err1 != nil {
-		panic("run error")
-	}
-	return nil
+	run(name, "mysql")
 }
 
 func mysqlStop(name string) error {
@@ -85,19 +112,28 @@ func mysqlStop(name string) error {
 	body := bytes.NewBuffer([]byte(""))
 	_, err1 := http.Post(url, "application/octet-stream", body)
 	if err1 != nil {
+		fmt.Println(err1)
 		panic("stop error")
 	}
 	return nil
 }
+func mysqlList() error {
+	list("mysql")
+	return nil
+}
+
+func mysqlHelp() {
+	fmt.Println("run, list or stop")
+}
 
 func mysql(action, name string) {
 	if name == "" {
-		fmt.Println("run or stop")
+		mysqlHelp()
 		return
 	}
 	switch action {
 	case "help":
-		fmt.Println("run or stop")
+		mysqlHelp()
 	case "run":
 		err := mysqlRun(name)
 		if err != nil {
@@ -108,28 +144,42 @@ func mysql(action, name string) {
 		if err != nil {
 			panic("mysql stop error")
 		}
+	case "list":
+		err := mysqlList()
+		if err != nil {
+			panic("mysql list error")
+		}
 	default:
-		fmt.Println("run or stop")
+		mysqlHelp()
 
 	}
 }
 
 func redisRun(name string) error {
-	return nil
+	run(name, "redis")
 }
 
 func redisStop(name string) error {
 	return nil
 }
 
+func redisList() error {
+	list("redis")
+	return nil
+}
+
+func redisHelp() {
+	fmt.Println("run, list or stop")
+}
+
 func redis(action, name string) {
 	if name == "" {
-		fmt.Println("run or stop")
+		redisHelp()
 		return
 	}
 	switch action {
 	case "help":
-		fmt.Println("run or stop")
+		redisHelp()
 	case "run":
 		err := redisRun(name)
 		if err != nil {
@@ -140,9 +190,14 @@ func redis(action, name string) {
 		if err != nil {
 			panic("redis stop error")
 		}
+	case "list":
+		err := redisList()
+		if err != nil {
+			panic("redis list error")
+		}
 	default:
-		fmt.Println("run or stop")
-
+		redisHelp()
+		return
 	}
 }
 
@@ -160,7 +215,7 @@ func main() {
 			if len(os.Args) > 2 {
 				storage(os.Args[2], "")
 			} else {
-				fmt.Println("upload or download and filename")
+				fmt.Println("upload, download or list and filename")
 			}
 		} else {
 			storage(os.Args[2], os.Args[3])
@@ -168,7 +223,7 @@ func main() {
 	case "mysql":
 		if len(os.Args) < 4 {
 			if len(os.Args) > 2 {
-				fmt.Println("run or stop")
+				fmt.Println("run, list or stop")
 				return
 			}
 			mysql(os.Args[2], "")
@@ -178,7 +233,7 @@ func main() {
 	case "redis":
 		if len(os.Args) < 4 {
 			if len(os.Args) > 2 {
-				fmt.Println("run or stop")
+				fmt.Println("run, list or stop")
 				return
 			}
 			redis(os.Args[2], "")
