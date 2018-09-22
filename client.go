@@ -32,10 +32,14 @@ func list(name string) error {
 func run(name, t string) error {
 	url := fmt.Sprintf("%s/%s_run/%s", hostname, t, name)
 	body := bytes.NewBuffer([]byte(""))
-	_, err1 := http.Post(url, "application/octet-stream", body)
+	dat, err1 := http.Post(url, "application/octet-stream", body)
 	if err1 != nil {
 		fmt.Println(err1)
 		panic("run error")
+	}
+	if dat.StatusCode != 200 {
+		fmt.Println(dat.StatusCode)
+		panic("post error")
 	}
 	return nil
 }
@@ -43,10 +47,14 @@ func run(name, t string) error {
 func stop(name, t string) error {
 	url := fmt.Sprintf("%s/%s_stop/%s", t, name)
 	body := bytes.NewBuffer([]byte(""))
-	_, err1 := http.Post(url, "application/octet-stream", body)
+	dat, err1 := http.Post(url, "application/octet-stream", body)
 	if err1 != nil {
 		fmt.Println(err1)
 		panic("stop error")
+	}
+	if dat.StatusCode != 200 {
+		fmt.Println(dat.StatusCode)
+		panic("post error")
 	}
 	return nil
 }
@@ -58,9 +66,13 @@ func storageUpload(name string) error {
 	}
 	url := fmt.Sprintf("%s/storage_upload/%s", hostname, name)
 	body := bytes.NewBuffer(dat)
-	_, err2 := http.Post(url, "application/octet-stream", body)
+	dat2, err2 := http.Post(url, "application/octet-stream", body)
 	if err2 != nil {
 		panic("upload error")
+	}
+	if dat2.StatusCode != 200 {
+		fmt.Println(dat2.StatusCode)
+		panic("download error")
 	}
 	return nil
 }
@@ -88,9 +100,11 @@ func storageDownload(name string) error {
 	}
 	return nil
 }
+
 func storageHelp() {
 	fmt.Println("upload, download or list")
 }
+
 func storage(action, name string) {
 	if name == "" {
 		storageHelp()
