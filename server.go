@@ -1,9 +1,7 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"io/ioutil"
 	"net/http"
@@ -42,49 +40,47 @@ func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(dat)
 }
 
-func req(name)
-
-func run(t, name string) error {
-	fmt.Println(t + " run")
+func req() *client.Client {
 	pathSplit := strings.Split(r.URL.Path, "/")
 	name := pathSplit[len(pathSplit)-1]
 	fmt.Println(name)
 	c := client.WithVersion("1.38")
 	cli, err := client.NewClientWithOpts(c)
 	if err != nil {
-		fmt.Println("mysql run error")
+		fmt.Println("client creation error")
 		fmt.Println(err)
 	}
+	return cli
+}
+
+func run(t string, w http.ResponseWriter, r *http.Request) error {
+	fmt.Println(t + " run")
+	c := req()
+	return nil
+}
+
+func stop(t string, w http.ResponseWriter, r *http.Request) error {
+	fmt.Println(t + " stop")
+	c := req()
 	return nil
 }
 
 func mysqlRunHandler(w http.ResponseWriter, r *http.Request) {
-	run("mysql")
-
-}
-
-func stop(t string) error {
+	run("mysql", w, r)
 
 }
 
 func mysqlStopHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("mysql stop")
-	pathSplit := strings.Split(r.URL.Path, "/")
-	name := pathSplit[len(pathSplit)-1]
-	fmt.Println(name)
-	_, err := client.NewEnvClient()
-	if err != nil {
-		fmt.Println("mysql create error")
-		fmt.Println(err)
-	}
+	stop("mysql", w, r)
 	return
 }
 
 func redisRunHandler(w http.ResponseWriter, r *http.Request) {
-	run("redis")
+	run("redis", w, r)
 }
 
 func redisStopHandler(w http.ResponseWriter, r *http.Request) {
+	stop("redis", w, r)
 	return
 }
 
