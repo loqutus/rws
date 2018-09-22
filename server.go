@@ -42,7 +42,9 @@ func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(dat)
 }
 
-func run(t string) error {
+func req(name)
+
+func run(t, name string) error {
 	fmt.Println(t + " run")
 	pathSplit := strings.Split(r.URL.Path, "/")
 	name := pathSplit[len(pathSplit)-1]
@@ -53,19 +55,16 @@ func run(t string) error {
 		fmt.Println("mysql run error")
 		fmt.Println(err)
 	}
+	return nil
 }
 
 func mysqlRunHandler(w http.ResponseWriter, r *http.Request) {
 	run("mysql")
-	containers, err2 := cli.ContainerList(context.Background(), types.ContainerListOptions{})
-	if err2 != nil {
-		fmt.Println("mysql run error")
-		fmt.Println(err2)
-	}
 
-	for _, container := range containers {
-		fmt.Printf("%s %s\n", container.ID[:10], container.Image)
-	}
+}
+
+func stop(t string) error {
+
 }
 
 func mysqlStopHandler(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +77,15 @@ func mysqlStopHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("mysql create error")
 		fmt.Println(err)
 	}
+	return
+}
 
+func redisRunHandler(w http.ResponseWriter, r *http.Request) {
+	run("redis")
+}
+
+func redisStopHandler(w http.ResponseWriter, r *http.Request) {
+	return
 }
 
 func main() {
@@ -87,8 +94,8 @@ func main() {
 	http.HandleFunc("/storage_download/", storageDownloadHandler)
 	http.HandleFunc("/mysql_run/", mysqlRunHandler)
 	http.HandleFunc("/mysql_stop/", mysqlStopHandler)
-	http.HandleFunc("/redis_run/", mysqlRunHandler)
-	http.HandleFunc("/redis_stop/", mysqlRunHandler)
+	http.HandleFunc("/redis_run/", redisRunHandler)
+	http.HandleFunc("/redis_stop/", redisStopHandler)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		panic(err)
 	}
