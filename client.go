@@ -40,6 +40,17 @@ func run(name, t string) error {
 	return nil
 }
 
+func stop(name, t string) error {
+	url := fmt.Sprintf("%s/%s_stop/%s", t, name)
+	body := bytes.NewBuffer([]byte(""))
+	_, err1 := http.Post(url, "application/octet-stream", body)
+	if err1 != nil {
+		fmt.Println(err1)
+		panic("stop error")
+	}
+	return nil
+}
+
 func storageUpload(name string) error {
 	dat, err1 := ioutil.ReadFile(name)
 	if err1 != nil {
@@ -105,16 +116,11 @@ func storage(action, name string) {
 
 func mysqlRun(name string) error {
 	run(name, "mysql")
+	return nil
 }
 
 func mysqlStop(name string) error {
-	url := fmt.Sprintf("%s/mysql_stop/%s", hostname, name)
-	body := bytes.NewBuffer([]byte(""))
-	_, err1 := http.Post(url, "application/octet-stream", body)
-	if err1 != nil {
-		fmt.Println(err1)
-		panic("stop error")
-	}
+	stop(name, "mysql")
 	return nil
 }
 func mysqlList() error {
@@ -157,9 +163,11 @@ func mysql(action, name string) {
 
 func redisRun(name string) error {
 	run(name, "redis")
+	return nil
 }
 
 func redisStop(name string) error {
+	stop(name, "redis")
 	return nil
 }
 
