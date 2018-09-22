@@ -11,15 +11,19 @@ import (
 const hostname = "http://localhost:8888"
 const dataDir = "data"
 
-func list(name string) error {
-	url := fmt.Sprintf("%s/%s_list", name, hostname)
+func req(name, t string) error {
+	url := fmt.Sprintf("%s/%s_%s", name, hostname, t)
 	body := bytes.NewBuffer([]byte(""))
 	resp, err1 := http.Post(url, "application/octet-stream", body)
+	defer resp.Body.Close()
 	if err1 != nil {
 		fmt.Println(err1)
-		panic("run error")
+		panic("post error")
 	}
-	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		fmt.Println(resp.StatusCode)
+		panic("post error")
+	}
 	b, err2 := ioutil.ReadAll(resp.Body)
 	if err2 != nil {
 		fmt.Println(err2)
@@ -29,34 +33,19 @@ func list(name string) error {
 	return nil
 }
 
+func list(name string) error {
+	e := req(name, "list")
+	return e
+}
+
 func run(name, t string) error {
-	url := fmt.Sprintf("%s/%s_run/%s", hostname, t, name)
-	body := bytes.NewBuffer([]byte(""))
-	dat, err1 := http.Post(url, "application/octet-stream", body)
-	if err1 != nil {
-		fmt.Println(err1)
-		panic("run error")
-	}
-	if dat.StatusCode != 200 {
-		fmt.Println(dat.StatusCode)
-		panic("post error")
-	}
-	return nil
+	e := req(name, "run")
+	return e
 }
 
 func stop(name, t string) error {
-	url := fmt.Sprintf("%s/%s_stop/%s", t, name)
-	body := bytes.NewBuffer([]byte(""))
-	dat, err1 := http.Post(url, "application/octet-stream", body)
-	if err1 != nil {
-		fmt.Println(err1)
-		panic("stop error")
-	}
-	if dat.StatusCode != 200 {
-		fmt.Println(dat.StatusCode)
-		panic("post error")
-	}
-	return nil
+	e := req(name, t)
+	return e
 }
 
 func storageUpload(name string) error {

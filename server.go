@@ -42,8 +42,8 @@ func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(dat)
 }
 
-func mysqlRunHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("mysql run")
+func run(t string) error {
+	fmt.Println(t + " run")
 	pathSplit := strings.Split(r.URL.Path, "/")
 	name := pathSplit[len(pathSplit)-1]
 	fmt.Println(name)
@@ -53,6 +53,10 @@ func mysqlRunHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("mysql run error")
 		fmt.Println(err)
 	}
+}
+
+func mysqlRunHandler(w http.ResponseWriter, r *http.Request) {
+	run("mysql")
 	containers, err2 := cli.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err2 != nil {
 		fmt.Println("mysql run error")
@@ -83,6 +87,8 @@ func main() {
 	http.HandleFunc("/storage_download/", storageDownloadHandler)
 	http.HandleFunc("/mysql_run/", mysqlRunHandler)
 	http.HandleFunc("/mysql_stop/", mysqlStopHandler)
+	http.HandleFunc("/redis_run/", mysqlRunHandler)
+	http.HandleFunc("/redis_stop/", mysqlRunHandler)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		panic(err)
 	}
