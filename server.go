@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"golang.org/x/net/context"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -40,48 +43,97 @@ func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(dat)
 }
 
-func req() *client.Client {
-	pathSplit := strings.Split(r.URL.Path, "/")
-	name := pathSplit[len(pathSplit)-1]
-	fmt.Println(name)
+func runContainer(imageName string) (string, error) {
+	ctx := context.Background()
 	c := client.WithVersion("1.38")
 	cli, err := client.NewClientWithOpts(c)
 	if err != nil {
-		fmt.Println("client creation error")
+		fmt.Println("client create error")
 		fmt.Println(err)
+		return "", err
 	}
-	return cli
+	out, err2 := cli.ImagePull(ctx, imageName, types.ImagePullOptions{})
+	if err2 != nil {
+		fmt.Println("image pull error")
+		fmt.Println(out)
+		return "", err2
+	}
+	resp, err3 := cli.ContainerCreate(ctx, &container.Config{
+		Image: imageName,
+	}, nil, nil, "")
+	if err3 != nil {
+		fmt.Println("container create error")
+		fmt.Println(resp)
+		return "", err3
+	}
+	err4 := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
+	if err4 != nil {
+		fmt.Println("container start error")
+		return "", err4
+	}
+	return resp.ID, nil
 }
 
-func run(t string, w http.ResponseWriter, r *http.Request) error {
-	fmt.Println(t + " run")
-	c := req()
-	return nil
-}
-
-func stop(t string, w http.ResponseWriter, r *http.Request) error {
-	fmt.Println(t + " stop")
-	c := req()
+func stopContainer(containerId string) error {
+	ctx := context.Background()
+	c := client.WithVersion("1.38")
+	cli, err1 := client.NewClientWithOpts(c)
+	if err1 != nil {
+		fmt.Println("client create error")
+		fmt.Println(err1)
+		return err1
+	}
+	err2 := cli.ContainerStop(ctx, containerId, nil)
+	if err2 != nil {
+		fmt.Println("container stop error")
+		fmt.Println(err2)
+		return err2
+	}
 	return nil
 }
 
 func mysqlRunHandler(w http.ResponseWriter, r *http.Request) {
-	run("mysql", w, r)
-
+	pathSplit := strings.Split(r.URL.Path, "/")
+	imageName := pathSplit[len(pathSplit)-1]
+	id, err := runContainer(imageName)
+	if err == nil {
+		fmt.Fprintf(w, id)
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, err.Error())
+	}
 }
 
 func mysqlStopHandler(w http.ResponseWriter, r *http.Request) {
-	stop("mysql", w, r)
-	return
+	pathSplit := strings.Split(r.URL.Path, "/")
+	containerId := pathSplit[len(pathSplit)-1]
+	err := stopContainer(containerId)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, err.Error())
+	}
 }
 
 func redisRunHandler(w http.ResponseWriter, r *http.Request) {
-	run("redis", w, r)
+	pathSplit := strings.Split(r.URL.Path, "/")
+	imageName := pathSplit[len(pathSplit)-1]
+	id, err := runContainer(imageName)
+	if err == nil {
+		fmt.Fprintf(w, id)
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, err.Error())
+	}
 }
 
 func redisStopHandler(w http.ResponseWriter, r *http.Request) {
-	stop("redis", w, r)
-	return
+	pathSplit := strings.Split(r.URL.Path, "/")
+	containerId := pathSplit[len(pathSplit)-1]
+	err := stopContainer(containerId)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, err.Error())
+	}
 }
 
 func main() {
