@@ -29,22 +29,7 @@ func get(actionType, name string) ([]bytes, error) {
 		fmt.Println(err2)
 		panic("response read error")
 	}
-	return string(b), nil
-}
-
-func list(name string) error {
-	e := req(name, "list")
-	return e
-}
-
-func run(name, t string) error {
-	e := req(name, "run")
-	return e
-}
-
-func stop(name, t string) error {
-	e := req(name, t)
-	return e
+	return b, nil
 }
 
 func storageUpload(name string) error {
@@ -101,7 +86,7 @@ func storageList() error {
 		panic("status code error")
 	}
 	bodyBytes, err2 := ioutil.ReadAll(dat.Body)
-	if err2 != nil{
+	if err2 != nil {
 		fmt.Println(err2)
 		panic("body read error")
 	}
@@ -138,73 +123,13 @@ func storage(action, name string) {
 		if err != nil {
 			fmt.Println(err)
 			panic("storage list failure")
-	}
-}
-
-func mysqlHelp() {
-	fmt.Println("run, list or stop")
-}
-
-func mysql(action, name string) {
-	if name == "" {
-		mysqlHelp()
-		return
-	}
-	switch action {
-	case "help":
-		mysqlHelp()
-	case "run":
-		err := mysqlRun(name)
-		if err != nil {
-			panic("mysql run error")
 		}
-	case "stop":
-		err := mysqlStop(name)
-		if err != nil {
-			panic("mysql stop error")
-		}
-	case "list":
-		err := mysqlList()
-		if err != nil {
-			panic("mysql list error")
-		}
-	default:
-		mysqlHelp()
-
-	}
-}
-
-func redis(action, name string) {
-	if name == "" {
-		redisHelp()
-		return
-	}
-	switch action {
-	case "help":
-		redisHelp()
-	case "run":
-		err := redisRun(name)
-		if err != nil {
-			panic("redis run error")
-		}
-	case "stop":
-		err := redisStop(name)
-		if err != nil {
-			panic("redis stop error")
-		}
-	case "list":
-		err := redisList()
-		if err != nil {
-			panic("redis list error")
-		}
-	default:
-		redisHelp()
-		return
 	}
 }
 
 func printHelp() {
 	fmt.Println("storage, mysql or redis")
+	return
 }
 
 func main() {
@@ -228,9 +153,9 @@ func main() {
 				fmt.Println("run, list or stop")
 				return
 			}
-			mysql(os.Args[2], "")
+			run("mysql", os.Args[2], "")
 		} else {
-			mysql(os.Args[2], os.Args[3])
+			run("mysql", os.Args[2], os.Args[3])
 		}
 	case "redis":
 		if len(os.Args) < 4 {
@@ -238,9 +163,9 @@ func main() {
 				fmt.Println("run, list or stop")
 				return
 			}
-			redis(os.Args[2], "")
+			run("redis", os.Args[2], "")
 		} else {
-			redis(os.Args[2], os.Args[3])
+			run("redis", os.Args[2], os.Args[3])
 		}
 	default:
 		printHelp()
