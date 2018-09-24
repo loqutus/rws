@@ -11,8 +11,8 @@ import (
 const hostname = "http://localhost:8888"
 const dataDir = "data"
 
-func req(actionType,  string) error {
-	url := fmt.Sprintf("%s/%s/%s", hostname, t)
+func get(actionType, name string) ([]bytes, error) {
+	url := fmt.Sprintf("%s/%s/%s", hostname, actionType, name)
 	body := bytes.NewBuffer([]byte(""))
 	resp, err1 := http.Post(url, "application/octet-stream", body)
 	defer resp.Body.Close()
@@ -29,8 +29,7 @@ func req(actionType,  string) error {
 		fmt.Println(err2)
 		panic("response read error")
 	}
-	fmt.Println(b)
-	return nil
+	return string(b), nil
 }
 
 func list(name string) error {
