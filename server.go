@@ -43,6 +43,51 @@ func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(dat)
 }
 
+func storageListHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("list")
+	files, err := ioutil.ReadDir(dataDir)
+	if err != nil {
+		fmt.Println("dir list error")
+		fmt.Println(err)
+	}
+	var l []string
+	for _, f := range files {
+		l = append(l, f.Name())
+	}
+	s := strings.Join(l, "\n")
+	w.Write([]byte(s))
+}
+
+func listContainers(typeName string) string {
+	ctx := context.Background()
+	c := client.WithVersion("1.38")
+	cli, err := client.NewClientWithOpts(c)
+	if err != nil {
+		fmt.Println("client create error")
+		fmt.Println(err)
+		return ""
+	}
+	var l []string
+	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{})
+	if err != nil {
+		fmt.Println("containerList error")
+		fmt.Println(err)
+		return ""
+	}
+	for _, container := range containers {
+		l = append(l, container.ID)
+	}
+	s := strings.Join(l, "\n")
+	return s
+}
+
+func listHandler(w http.ResponseWriter, r *http.Request) {
+	pathSplit := strings.Split(r.URL.Path, "/")
+	typeName := pathSplit[len(pathSplit)-1]
+	s := listContainers(typeName)
+	w.Write([]byte(s))
+}
+
 func runContainer(imageName string) (string, error) {
 	ctx := context.Background()
 	c := client.WithVersion("1.38")
@@ -92,7 +137,7 @@ func stopContainer(containerId string) error {
 	return nil
 }
 
-func mysqlRunHandler(w http.ResponseWriter, r *http.Request) {
+func runHandler(w http.ResponseWriter, r *http.Request) {
 	pathSplit := strings.Split(r.URL.Path, "/")
 	imageName := pathSplit[len(pathSplit)-1]
 	id, err := runContainer(imageName)
@@ -104,29 +149,7 @@ func mysqlRunHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func mysqlStopHandler(w http.ResponseWriter, r *http.Request) {
-	pathSplit := strings.Split(r.URL.Path, "/")
-	containerId := pathSplit[len(pathSplit)-1]
-	err := stopContainer(containerId)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, err.Error())
-	}
-}
-
-func redisRunHandler(w http.ResponseWriter, r *http.Request) {
-	pathSplit := strings.Split(r.URL.Path, "/")
-	imageName := pathSplit[len(pathSplit)-1]
-	id, err := runContainer(imageName)
-	if err == nil {
-		fmt.Fprintf(w, id)
-	} else {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, err.Error())
-	}
-}
-
-func redisStopHandler(w http.ResponseWriter, r *http.Request) {
+func stopHandler(w http.ResponseWriter, r *http.Request) {
 	pathSplit := strings.Split(r.URL.Path, "/")
 	containerId := pathSplit[len(pathSplit)-1]
 	err := stopContainer(containerId)
@@ -138,12 +161,12 @@ func redisStopHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	fmt.Println("starting server")
-	http.HandleFunc("/storage_upload/", storageUploadHandler)
-	http.HandleFunc("/storage_download/", storageDownloadHandler)
-	http.HandleFunc("/mysql_run/", mysqlRunHandler)
-	http.HandleFunc("/mysql_stop/", mysqlStopHandler)
-	http.HandleFunc("/redis_run/", redisRunHandler)
-	http.HandleFunc("/redis_stop/", redisStopHandler)
+	http.HandleFunc("/upload/*", storageUploadHandler)
+	http.HandleFunc("/download/*", storageDownloadHandler)
+	http.HandleFunc("/list", storageListHandler)
+	http.HandleFunc("/run/*", runHandler)
+	http.HandleFunc("/stop/*", stopHandler)
+	http.HandleFunc("/list/*", listHandler)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		panic(err)
 	}

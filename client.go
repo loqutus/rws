@@ -11,8 +11,8 @@ import (
 const hostname = "http://localhost:8888"
 const dataDir = "data"
 
-func req(name, t string) error {
-	url := fmt.Sprintf("%s/%s_%s", name, hostname, t)
+func req(actionType,  string) error {
+	url := fmt.Sprintf("%s/%s/%s", hostname, t)
 	body := bytes.NewBuffer([]byte(""))
 	resp, err1 := http.Post(url, "application/octet-stream", body)
 	defer resp.Body.Close()
@@ -53,7 +53,7 @@ func storageUpload(name string) error {
 	if err1 != nil {
 		panic("file read error")
 	}
-	url := fmt.Sprintf("%s/storage_upload/%s", hostname, name)
+	url := fmt.Sprintf("%s/upload/%s", hostname, name)
 	body := bytes.NewBuffer(dat)
 	dat2, err2 := http.Post(url, "application/octet-stream", body)
 	if err2 != nil {
@@ -67,26 +67,46 @@ func storageUpload(name string) error {
 }
 
 func storageDownload(name string) error {
-	url := fmt.Sprintf("%s/storage_download/%s", hostname, name)
+	url := fmt.Sprintf("%s/download/%s", hostname, name)
 	fmt.Println(url)
 	dat, err1 := http.Get(url)
 	if err1 != nil {
-		panic("download error")
+		panic("get error")
 	}
 	if dat.StatusCode != 200 {
 		fmt.Println(dat.StatusCode)
-		panic("download error")
+		panic("status code error")
 	}
 	bodyBytes, err2 := ioutil.ReadAll(dat.Body)
 	if err2 != nil {
 		fmt.Println(err2)
-		panic("download error")
+		panic("body read error")
 	}
 	err3 := ioutil.WriteFile(name, []byte(bodyBytes), 0644)
 	if err3 != nil {
 		fmt.Println(err3)
 		panic("file write error")
 	}
+	return nil
+}
+
+func storageList() error {
+	url := fmt.Sprintf("%s/list", hostname)
+	fmt.Println(url)
+	dat, err1 := http.Get(url)
+	if err1 != nil {
+		panic("get error")
+	}
+	if dat.StatusCode != 200 {
+		fmt.Println(dat.StatusCode)
+		panic("status code error")
+	}
+	bodyBytes, err2 := ioutil.ReadAll(dat.Body)
+	if err2 != nil{
+		fmt.Println(err2)
+		panic("body read error")
+	}
+	fmt.Println(bodyBytes)
 	return nil
 }
 
@@ -114,21 +134,12 @@ func storage(action, name string) {
 			fmt.Println(err)
 			panic("storage download failure")
 		}
+	case "list":
+		err := storageList()
+		if err != nil {
+			fmt.Println(err)
+			panic("storage list failure")
 	}
-}
-
-func mysqlRun(name string) error {
-	run(name, "mysql")
-	return nil
-}
-
-func mysqlStop(name string) error {
-	stop(name, "mysql")
-	return nil
-}
-func mysqlList() error {
-	list("mysql")
-	return nil
 }
 
 func mysqlHelp() {
@@ -162,25 +173,6 @@ func mysql(action, name string) {
 		mysqlHelp()
 
 	}
-}
-
-func redisRun(name string) error {
-	run(name, "redis")
-	return nil
-}
-
-func redisStop(name string) error {
-	stop(name, "redis")
-	return nil
-}
-
-func redisList() error {
-	list("redis")
-	return nil
-}
-
-func redisHelp() {
-	fmt.Println("run, list or stop")
 }
 
 func redis(action, name string) {
