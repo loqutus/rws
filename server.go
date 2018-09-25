@@ -59,8 +59,7 @@ func storageListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func listContainers(typeName string) string {
-	ctx := context.Background()
-	c := client.WithVersion("1.38")
+¡	c := client.WithVersion("1.38")
 	cli, err := client.NewClientWithOpts(c)
 	if err != nil {
 		fmt.Println("client create error")

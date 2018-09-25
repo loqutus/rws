@@ -11,27 +11,6 @@ import (
 const hostname = "http://localhost:8888"
 const dataDir = "data"
 
-func get(actionType, name string) ([]bytes, error) {
-	url := fmt.Sprintf("%s/%s/%s", hostname, actionType, name)
-	body := bytes.NewBuffer([]byte(""))
-	resp, err1 := http.Post(url, "application/octet-stream", body)
-	defer resp.Body.Close()
-	if err1 != nil {
-		fmt.Println(err1)
-		panic("post error")
-	}
-	if resp.StatusCode != 200 {
-		fmt.Println(resp.StatusCode)
-		panic("post error")
-	}
-	b, err2 := ioutil.ReadAll(resp.Body)
-	if err2 != nil {
-		fmt.Println(err2)
-		panic("response read error")
-	}
-	return b, nil
-}
-
 func storageUpload(name string) error {
 	dat, err1 := ioutil.ReadFile(name)
 	if err1 != nil {
@@ -127,9 +106,42 @@ func storage(action, name string) {
 	}
 }
 
+func req(actionType, method, name, id string) ([]byte, error) {
+	url := ""
+	if name != "" {
+		// http://localhost:8888/run/redis
+		url = fmt.Sprintf("%s/%s/%s/%s", hostname, actionType, name, id)
+	} else {
+		// http://localhost:8888/stop/redis/ID
+		url = fmt.Sprintf("%s/%s/%s", hostname, actionType, name)
+	}
+	var err1 error
+	var resp *http.Response
+	if method == "post" {
+		body := bytes.NewBuffer([]byte(""))
+		resp, err1 = http.Post(url, "application/octet-stream", body)
+		defer resp.Body.Close()
+	} else {
+		resp, err1 = http.Get(url)
+	}
+	if err1 != nil {
+		fmt.Println(err1)
+		panic("post error")
+	}
+	if resp.StatusCode != 200 {
+		fmt.Println(resp.StatusCode)
+		panic("post error")
+	}
+	b, err2 := ioutil.ReadAll(resp.Body)
+	if err2 != nil {
+		fmt.Println(err2)
+		panic("response read error")
+	}
+	return b, nil
+}
+
 func printHelp() {
 	fmt.Println("storage, mysql or redis")
-	return
 }
 
 func main() {
@@ -153,9 +165,9 @@ func main() {
 				fmt.Println("run, list or stop")
 				return
 			}
-			run("mysql", os.Args[2], "")
+			req("mysql", "get", os.Args[2], "")
 		} else {
-			run("mysql", os.Args[2], os.Args[3])
+			req("mysql", "post", os.Args[2], os.Args[3])
 		}
 	case "redis":
 		if len(os.Args) < 4 {
@@ -163,9 +175,9 @@ func main() {
 				fmt.Println("run, list or stop")
 				return
 			}
-			run("redis", os.Args[2], "")
+			req("redis", "get", os.Args[2], "")
 		} else {
-			run("redis", os.Args[2], os.Args[3])
+			req("redis", "post", os.Args[2], os.Args[3])
 		}
 	default:
 		printHelp()
