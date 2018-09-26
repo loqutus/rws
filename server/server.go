@@ -19,17 +19,21 @@ func storageUploadHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		fmt.Println("request reading error")
+		fmt.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	pathSplit := strings.Split(r.URL.Path, "/")
 	filename := fmt.Sprintf("%s, %s", dataDir, pathSplit[len(pathSplit)-1])
-	err3 := ioutil.WriteFile(filename, []byte(body), 0644)
-	if err3 != nil {
+	err2 := ioutil.WriteFile(filename, []byte(body), 0644)
+	if err2 != nil {
 		fmt.Println("file write error")
-		fmt.Println(err3)
+		fmt.Println(err2)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	fmt.Println("file %s uploaded", filename)
+	w.WriteHeader(http.StatusOK)
 }
 
 func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
@@ -40,29 +44,42 @@ func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	if err1 != nil {
 		fmt.Println("file read error: " + filename)
 		fmt.Println(err1)
+
 		return
 	}
 	_, err2 := w.Write(dat)
 	if err2 != nil {
 		fmt.Println("request write error")
 		fmt.Println(err2)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 	fmt.Println("file %s downloaded", filename)
+	w.WriteHeader(http.StatusOK)
 }
 
 func storageListHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("list")
+	fmt.Println("storage list")
 	files, err := ioutil.ReadDir(dataDir)
 	if err != nil {
 		fmt.Println("dir list error")
 		fmt.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 	var l []string
 	for _, f := range files {
 		l = append(l, f.Name())
 	}
 	s := strings.Join(l, "\n")
-	w.Write([]byte(s))
+	_, err2 := w.Write([]byte(s))
+	if err2 != nil {
+		fmt.Println("request write error")
+		fmt.Println(err2)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func listContainers(typeName string) string {
