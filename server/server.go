@@ -24,7 +24,7 @@ func storageUploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pathSplit := strings.Split(r.URL.Path, "/")
-	filename := fmt.Sprintf("%s, %s", dataDir, pathSplit[len(pathSplit)-1])
+	filename := fmt.Sprintf("%s/%s", dataDir, pathSplit[len(pathSplit)-1])
 	err2 := ioutil.WriteFile(filename, []byte(body), 0644)
 	if err2 != nil {
 		fmt.Println("file write error")

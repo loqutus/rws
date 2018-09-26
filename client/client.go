@@ -34,7 +34,6 @@ func storageUpload(name string) error {
 
 func storageDownload(name string) error {
 	url := fmt.Sprintf("%s/download/%s", hostname, name)
-	fmt.Println(url)
 	dat, err1 := http.Get(url)
 	if err1 != nil {
 		fmt.Println(err1)
@@ -59,7 +58,6 @@ func storageDownload(name string) error {
 
 func storageList() error {
 	url := fmt.Sprintf("%s/list", hostname)
-	fmt.Println(url)
 	dat, err1 := http.Get(url)
 	if err1 != nil {
 		panic("get error")
@@ -73,7 +71,7 @@ func storageList() error {
 		fmt.Println(err2)
 		panic("body read error")
 	}
-	fmt.Println(bodyBytes)
+	fmt.Println(string(bodyBytes))
 	return nil
 }
 
