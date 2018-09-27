@@ -31,8 +31,16 @@ func TestStorageList(t *testing.T) {
 	}
 }
 
+func TestStorageRemove(t *testing.T) {
+	err := storageRemove("test")
+	if err != nil {
+		fmt.Println(err)
+		t.Errorf("error")
+	}
+}
+
 func TestRunContainer(t *testing.T) {
-	id = container("redis", "run", "")
+	_ = container("redis", "run", "")
 }
 
 func TestListContainer(t *testing.T) {
@@ -43,4 +51,8 @@ func TestListContainer(t *testing.T) {
 
 func TestStopContainer(t *testing.T) {
 	_ = container("redis", "stop", id)
+}
+
+func TestAddHosts(t *testing.T) {
+	_ = hosts("add", "localhost")
 }

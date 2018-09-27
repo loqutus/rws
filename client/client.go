@@ -56,6 +56,26 @@ func storageDownload(name string) error {
 	return nil
 }
 
+func storageRemove(name string) error {
+	url := fmt.Sprintf("%s/download/%s", hostname, name)
+	dat, err1 := http.Get(url)
+	if err1 != nil {
+		fmt.Println(err1)
+		panic("get error")
+	}
+	if dat.StatusCode != 200 {
+		fmt.Println(dat.StatusCode)
+		panic("status code error")
+	}
+	bodyBytes, err2 := ioutil.ReadAll(dat.Body)
+	if err2 != nil {
+		fmt.Println(err2)
+		panic("body read error")
+	}
+	print(string(bodyBytes))
+	return nil
+}
+
 func storageList() error {
 	url := fmt.Sprintf("%s/list", hostname)
 	dat, err1 := http.Get(url)
@@ -104,6 +124,12 @@ func storage(action, name string) {
 		if err != nil {
 			fmt.Println(err)
 			panic("storage list failure")
+		}
+	case "remove":
+		err := storageRemove("name")
+		if err != nil {
+			fmt.Println(err)
+			panic("storage remove failure")
 		}
 	}
 }
@@ -165,13 +191,30 @@ func container(containerType, action, name string) string {
 	return ""
 }
 
+// hosts add localhost
+// hosts delete localhost
+// hosts list
+func hosts(action, name string) string {
+	switch action {
+	case "add_host", "delete_host", "list_hosts":
+		resp, err := req("get", action, "", name, []byte(""))
+		if err != nil {
+			fmt.Println(err)
+			panic("get error")
+		}
+		fmt.Println(string(resp))
+		return string(resp)
+	default:
+		panic("unknown action")
+	}
+}
 func main() {
 	// client --type storage --action upload --name file
 	// client --type storage --action list
 	var typ, action, name string
 	flag.StringVar(&typ, "type", "", "storage, mysql or redis")
-	flag.StringVar(&action, "action", "", "upload, download, run, stop or list")
-	flag.StringVar(&name, "name", "", "container/file name")
+	flag.StringVar(&action, "action", "", "upload, download, run, stop, add, remove, add_host, remove_host, list_hosts or list")
+	flag.StringVar(&name, "name", "", "container/file/host name")
 	flag.Parse()
 	switch action {
 	case "upload":
@@ -186,8 +229,16 @@ func main() {
 		} else {
 			panic("file name required")
 		}
+	case "remove":
+		if name != "" {
+			storage("remove", name)
+		} else {
+			panic("file name required")
+		}
 	case "run", "stop", "list":
 		_ = container(typ, action, name)
+	case "add_host", "remove_host", "list_hosts":
+		_ = hosts(action, name)
 	default:
 		panic("upload, download, run, stop or list")
 	}
