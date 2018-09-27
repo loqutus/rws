@@ -2,10 +2,10 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 )
 
 const hostname = "http://localhost:8888"
@@ -108,32 +108,33 @@ func storage(action, name string) {
 	}
 }
 
-func req(actionType, method, name, id string) ([]byte, error) {
+// get mysql run
+// get mysql stop id
+func req(httpMethod, action, containerType, id string, body []byte) ([]byte, error) {
 	url := ""
-	if name != "" {
-		// http://localhost:8888/run/redis
-		url = fmt.Sprintf("%s/%s/%s/%s", hostname, actionType, name, id)
-	} else {
+	if id != "" {
 		// http://localhost:8888/stop/redis/ID
-		url = fmt.Sprintf("%s/%s/%s", hostname, actionType, name)
+		url = fmt.Sprintf("%s/%s/%s/%s", hostname, action, containerType, id)
+	} else {
+		// http://localhost:8888/start/redis
+		url = fmt.Sprintf("%s/%s/%s", hostname, action, containerType)
 	}
-	fmt.Print(url)
 	var err1 error
 	var resp *http.Response
-	if method == "post" {
-		body := bytes.NewBuffer([]byte(""))
-		resp, err1 = http.Post(url, "application/octet-stream", body)
+	if httpMethod == "post" {
+		bodybuffer := bytes.NewBuffer(body)
+		resp, err1 = http.Post(url, "application/octet-stream", bodybuffer)
 		defer resp.Body.Close()
 	} else {
 		resp, err1 = http.Get(url)
 	}
 	if err1 != nil {
 		fmt.Println(err1)
-		panic("post error")
+		panic("request error")
 	}
 	if resp.StatusCode != 200 {
 		fmt.Println(resp.StatusCode)
-		panic("post error")
+		panic("request status code error")
 	}
 	b, err2 := ioutil.ReadAll(resp.Body)
 	if err2 != nil {
@@ -143,52 +144,50 @@ func req(actionType, method, name, id string) ([]byte, error) {
 	return b, nil
 }
 
-func printHelp() {
-	fmt.Println("storage, mysql or redis")
+// mysql run
+// mysql stop id
+func container(containerType, action, name string) {
+	switch containerType {
+	case "mysql", "redis":
+		switch action {
+		case "run", "stop", "list":
+			resp, err := req("get", action, containerType, name, []byte(""))
+			if err != nil {
+				fmt.Println(err)
+				panic("get error")
+			}
+			fmt.Println(resp)
+		}
+	default:
+		panic("unknown type")
+	}
+	panic("wrong type")
 }
 
 func main() {
-	if len(os.Args) > 1 {
-		command := os.Args[1]
-		switch command {
-		case "help":
-			printHelp()
-		case "storage":
-			if len(os.Args) < 4 {
-				if len(os.Args) > 2 {
-					storage(os.Args[2], "")
-				} else {
-					fmt.Println("upload, download or list and filename")
-				}
-			} else {
-				storage(os.Args[2], os.Args[3])
-			}
-		case "mysql":
-			if len(os.Args) < 4 {
-				if len(os.Args) > 2 {
-					fmt.Println("run, list or stop")
-					return
-				}
-				req("mysql", "get", os.Args[2], "")
-			} else {
-				req("mysql", "post", os.Args[2], os.Args[3])
-			}
-		case "redis":
-			if len(os.Args) < 4 {
-				if len(os.Args) > 2 {
-					fmt.Println("run, list or stop")
-					return
-				}
-				req("redis", "get", os.Args[2], "")
-			} else {
-				req("redis", "post", os.Args[2], os.Args[3])
-			}
-		default:
-			printHelp()
-
+	// client --type storage --action upload --name file
+	// client --type storage --action list
+	var typ, action, name string
+	flag.StringVar(&typ, "type", "", "storage, mysql or redis")
+	flag.StringVar(&action, "action", "", "upload, download, run, stop or list")
+	flag.StringVar(&name, "name", "", "container/file name")
+	flag.Parse()
+	switch action {
+	case "upload":
+		if name != "" {
+			storage("upload", name)
+		} else {
+			panic("file name required")
 		}
-	} else {
-		printHelp()
-		os.Exit(1)
+	case "download":
+		if name != "" {
+			storage("download", name)
+		} else {
+			panic("file name required")
+		}
+	case "run", "stop", "list":
+		container(typ, action, name)
+	default:
+		panic("upload, download, run, stop or list")
 	}
 }

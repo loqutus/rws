@@ -28,3 +28,7 @@ func TestStorageList(t *testing.T) {
 		t.Errorf("error")
 	}
 }
+
+func TestRunContainer(t *testing.T) {
+	container("redis", "run", "")
+}

@@ -176,7 +176,9 @@ func stopHandler(w http.ResponseWriter, r *http.Request) {
 	pathSplit := strings.Split(r.URL.Path, "/")
 	containerId := pathSplit[len(pathSplit)-1]
 	err := stopContainer(containerId)
-	if err != nil {
+	if err == nil {
+		fmt.Fprintf(w, "OK")
+	} else {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, err.Error())
 	}
