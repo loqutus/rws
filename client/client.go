@@ -156,12 +156,12 @@ func container(containerType, action, name string) {
 				fmt.Println(err)
 				panic("get error")
 			}
-			fmt.Println(resp)
+			fmt.Println(string(resp))
+			return
 		}
 	default:
 		panic("unknown type")
 	}
-	panic("wrong type")
 }
 
 func main() {
