@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+var id string
+
 func TestStorageUpload(t *testing.T) {
 	err := storageUpload("test")
 	if err != nil {
@@ -30,5 +32,9 @@ func TestStorageList(t *testing.T) {
 }
 
 func TestRunContainer(t *testing.T) {
-	container("redis", "run", "")
+	id = container("redis", "run", "")
+}
+
+func TestStopContainer(t *testing.T) {
+	_ = container("redis", "stop", id)
 }

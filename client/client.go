@@ -146,7 +146,7 @@ func req(httpMethod, action, containerType, id string, body []byte) ([]byte, err
 
 // mysql run
 // mysql stop id
-func container(containerType, action, name string) {
+func container(containerType, action, name string) string {
 	switch containerType {
 	case "mysql", "redis":
 		switch action {
@@ -157,11 +157,12 @@ func container(containerType, action, name string) {
 				panic("get error")
 			}
 			fmt.Println(string(resp))
-			return
+			return string(resp)
 		}
 	default:
 		panic("unknown type")
 	}
+	return ""
 }
 
 func main() {
@@ -186,7 +187,7 @@ func main() {
 			panic("file name required")
 		}
 	case "run", "stop", "list":
-		container(typ, action, name)
+		_ = container(typ, action, name)
 	default:
 		panic("upload, download, run, stop or list")
 	}
