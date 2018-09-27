@@ -35,6 +35,12 @@ func TestRunContainer(t *testing.T) {
 	id = container("redis", "run", "")
 }
 
+func TestListContainer(t *testing.T) {
+	fmt.Println("test list")
+	l := container("redis", "list", "")
+	fmt.Println(l)
+}
+
 func TestStopContainer(t *testing.T) {
 	_ = container("redis", "stop", id)
 }
