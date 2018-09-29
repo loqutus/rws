@@ -9,6 +9,7 @@ import (
 )
 
 const hostname = "http://localhost:8888"
+const actions = "storage_upload, storage_download, storage_remove, storage_list, container_run, container_stop, container_list, container_remove, host_add, host_remove, host_list"
 
 func storageUpload(name string) error {
 	dat, err1 := ioutil.ReadFile(name)
@@ -16,7 +17,7 @@ func storageUpload(name string) error {
 		fmt.Println(err1)
 		panic("file read error")
 	}
-	url := fmt.Sprintf("%s/upload/%s", hostname, name)
+	url := fmt.Sprintf("%s/storage_upload/%s", hostname, name)
 	body := bytes.NewBuffer(dat)
 	dat2, err2 := http.Post(url, "application/octet-stream", body)
 	if err2 != nil {
@@ -33,7 +34,7 @@ func storageUpload(name string) error {
 }
 
 func storageDownload(name string) error {
-	url := fmt.Sprintf("%s/download/%s", hostname, name)
+	url := fmt.Sprintf("%s/storage_download/%s", hostname, name)
 	dat, err1 := http.Get(url)
 	if err1 != nil {
 		fmt.Println(err1)
@@ -57,7 +58,7 @@ func storageDownload(name string) error {
 }
 
 func storageRemove(name string) error {
-	url := fmt.Sprintf("%s/download/%s", hostname, name)
+	url := fmt.Sprintf("%s/storage_remove/%s", hostname, name)
 	dat, err1 := http.Get(url)
 	if err1 != nil {
 		fmt.Println(err1)
@@ -77,7 +78,7 @@ func storageRemove(name string) error {
 }
 
 func storageList() error {
-	url := fmt.Sprintf("%s/list", hostname)
+	url := fmt.Sprintf("%s/storage_list", hostname)
 	dat, err1 := http.Get(url)
 	if err1 != nil {
 		panic("get error")
@@ -107,25 +108,25 @@ func storage(action, name string) {
 	switch action {
 	case "help":
 		storageHelp()
-	case "upload":
+	case "storage_upload":
 		err := storageUpload(name)
 		if err != nil {
 			fmt.Println(err)
 			panic("storage upload failure")
 		}
-	case "download":
+	case "storage_download":
 		err := storageDownload(name)
 		if err != nil {
 			fmt.Println(err)
 			panic("storage download failure")
 		}
-	case "list":
+	case "storage_list":
 		err := storageList()
 		if err != nil {
 			fmt.Println(err)
 			panic("storage list failure")
 		}
-	case "remove":
+	case "storage_remove":
 		err := storageRemove("name")
 		if err != nil {
 			fmt.Println(err)
@@ -136,15 +137,16 @@ func storage(action, name string) {
 
 // get mysql run
 // get mysql stop id
-func req(httpMethod, action, containerType, id string, body []byte) ([]byte, error) {
+func req(httpMethod, action, id string, body []byte) ([]byte, error) {
 	url := ""
 	if id != "" {
-		// http://localhost:8888/stop/redis/ID
-		url = fmt.Sprintf("%s/%s/%s/%s", hostname, action, containerType, id)
+		// http://localhost:8888/host_add/redis
+		url = fmt.Sprintf("%s/%s/%s", hostname, action, id)
 	} else {
-		// http://localhost:8888/start/redis
-		url = fmt.Sprintf("%s/%s/%s", hostname, action, containerType)
+		// http://localhost:8888/container_list
+		url = fmt.Sprintf("%s/%s", hostname, action)
 	}
+	fmt.Println(url)
 	var err1 error
 	var resp *http.Response
 	if httpMethod == "post" {
@@ -172,32 +174,37 @@ func req(httpMethod, action, containerType, id string, body []byte) ([]byte, err
 
 // mysql run
 // mysql stop id
-func container(containerType, action, name string) string {
-	switch containerType {
-	case "mysql", "redis":
-		switch action {
-		case "run", "stop", "list":
-			resp, err := req("get", action, containerType, name, []byte(""))
-			if err != nil {
-				fmt.Println(err)
-				panic("get error")
-			}
-			fmt.Println(string(resp))
-			return string(resp)
-		}
+func container(action, name string) string {
+	var err error
+	var resp []byte
+	switch action {
+	case "container_list":
+		resp, err = req("get", action, "", []byte(""))
+	case "container_run", "container_stop", "container_remove":
+		resp, err = req("get", action, name, []byte(""))
 	default:
-		panic("unknown type")
+		panic("unknown action")
 	}
-	return ""
+	if err != nil {
+		fmt.Println(err)
+		panic("get error")
+	}
+	return string(resp)
 }
 
 // hosts add localhost
 // hosts delete localhost
 // hosts list
 func hosts(action, name string) string {
+	var resp []byte
+	var err error
 	switch action {
-	case "add_host", "delete_host", "list_hosts":
-		resp, err := req("get", action, "", name, []byte(""))
+	case "host_add", "host_remove", "host_list":
+		if action == "host_list" {
+			resp, err = req("get", action, "", []byte(""))
+		} else {
+			resp, err = req("get", action, name, []byte(""))
+		}
 		if err != nil {
 			fmt.Println(err)
 			panic("get error")
@@ -211,35 +218,24 @@ func hosts(action, name string) string {
 func main() {
 	// client --type storage --action upload --name file
 	// client --type storage --action list
-	var typ, action, name string
-	flag.StringVar(&typ, "type", "", "storage, mysql or redis")
-	flag.StringVar(&action, "action", "", "upload, download, run, stop, add, remove, add_host, remove_host, list_hosts or list")
+	var action, name string
+	flag.StringVar(&action, "action", "", actions)
 	flag.StringVar(&name, "name", "", "container/file/host name")
 	flag.Parse()
 	switch action {
-	case "upload":
-		if name != "" {
-			storage("upload", name)
+	case "storage_upload", "storage_download", "storage_remove", "storage_list":
+		if name != "" && action != "storage_list" {
+			storage(action, name)
+		} else if name == "" && action == "storage_list" {
+			storage(action, "")
 		} else {
 			panic("file name required")
 		}
-	case "download":
-		if name != "" {
-			storage("download", name)
-		} else {
-			panic("file name required")
-		}
-	case "remove":
-		if name != "" {
-			storage("remove", name)
-		} else {
-			panic("file name required")
-		}
-	case "run", "stop", "list":
-		_ = container(typ, action, name)
-	case "add_host", "remove_host", "list_hosts":
+	case "container_run", "container_stop", "container_list, container_remove":
+		_ = container(action, name)
+	case "host_add", "host_remove", "host_list":
 		_ = hosts(action, name)
 	default:
-		panic("upload, download, run, stop or list")
+		panic(actions)
 	}
 }

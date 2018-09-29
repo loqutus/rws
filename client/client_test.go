@@ -40,19 +40,29 @@ func TestStorageRemove(t *testing.T) {
 }
 
 func TestRunContainer(t *testing.T) {
-	_ = container("redis", "run", "")
+	id = container("container_run", "redis")
 }
 
 func TestListContainer(t *testing.T) {
-	fmt.Println("test list")
-	l := container("redis", "list", "")
-	fmt.Println(l)
+	_ = container("container_list", "")
 }
 
 func TestStopContainer(t *testing.T) {
-	_ = container("redis", "stop", id)
+	_ = container("container_stop", id)
 }
 
-func TestAddHosts(t *testing.T) {
-	_ = hosts("add", "localhost")
+func TestRemoveContainer(t *testing.T) {
+	_ = container("container_remove", id)
+}
+
+func TestAddHost(t *testing.T) {
+	_ = hosts("host_add", "localhost")
+}
+
+func TestRemoveHost(t *testing.T) {
+	_ = hosts("host_remove", "localhost")
+}
+
+func TestListHosts(t *testing.T) {
+	_ = hosts("host_list", "")
 }

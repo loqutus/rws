@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -27,15 +28,15 @@ func storageUploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pathSplit := strings.Split(r.URL.Path, "/")
-	filename := fmt.Sprintf("%s/%s", dataDir, pathSplit[len(pathSplit)-1])
-	err2 := ioutil.WriteFile(filename, []byte(body), 0644)
+	fileName := fmt.Sprintf("%s/%s", dataDir, pathSplit[len(pathSplit)-1])
+	err2 := ioutil.WriteFile(fileName, []byte(body), 0644)
 	if err2 != nil {
 		fmt.Println("file write error")
 		fmt.Println(err2)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("file %s uploaded", filename)
+	fmt.Println("file " + fileName + " uploaded")
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -47,6 +48,7 @@ func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	if err1 != nil {
 		fmt.Println("file read error: " + fileName)
 		fmt.Println(err1)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	_, err2 := w.Write(dat)
@@ -56,7 +58,7 @@ func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("file %s downloaded", fileName)
+	fmt.Println("file " + fileName + " downloaded")
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -70,7 +72,7 @@ func storageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("file %s removed", fileName)
+	fmt.Println("file " + fileName + " removed")
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -99,6 +101,7 @@ func storageListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func listContainers(typeName string) string {
+	fmt.Println("list containers")
 	c := client.WithVersion("1.38")
 	cli, err := client.NewClientWithOpts(c)
 	if err != nil {
@@ -120,7 +123,7 @@ func listContainers(typeName string) string {
 	return s
 }
 
-func listHandler(w http.ResponseWriter, r *http.Request) {
+func containerListhandler(w http.ResponseWriter, r *http.Request) {
 	pathSplit := strings.Split(r.URL.Path, "/")
 	typeName := pathSplit[len(pathSplit)-1]
 	s := listContainers(typeName)
@@ -128,6 +131,7 @@ func listHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func runContainer(imageName string) (string, error) {
+	fmt.Println("run container")
 	ctx := context.Background()
 	c := client.WithVersion("1.38")
 	cli, err := client.NewClientWithOpts(c)
@@ -148,6 +152,7 @@ func runContainer(imageName string) (string, error) {
 	if err3 != nil {
 		fmt.Println("container create error")
 		fmt.Println(resp)
+		fmt.Println(err3)
 		return "", err3
 	}
 	err4 := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
@@ -159,6 +164,7 @@ func runContainer(imageName string) (string, error) {
 }
 
 func stopContainer(containerId string) error {
+	fmt.Println("stop container")
 	ctx := context.Background()
 	c := client.WithVersion("1.38")
 	cli, err1 := client.NewClientWithOpts(c)
@@ -176,7 +182,27 @@ func stopContainer(containerId string) error {
 	return nil
 }
 
-func runHandler(w http.ResponseWriter, r *http.Request) {
+func removeContainer(containerId string) error {
+	fmt.Println("remove container")
+	ctx := context.Background()
+	c := client.WithVersion("1.38")
+	cli, err1 := client.NewClientWithOpts(c)
+	if err1 != nil {
+		fmt.Println("client create error:")
+		fmt.Println(err1)
+		return err1
+	}
+	opts := types.ContainerRemoveOptions{RemoveVolumes: false, RemoveLinks: false, Force: false}
+	err2 := cli.ContainerRemove(ctx, containerId, opts)
+	if err2 != nil {
+		fmt.Println("container remove error:")
+		fmt.Println(err2)
+		return err2
+	}
+	return nil
+}
+
+func containerRunHandler(w http.ResponseWriter, r *http.Request) {
 	pathSplit := strings.Split(r.URL.Path, "/")
 	imageName := pathSplit[len(pathSplit)-1]
 	id, err := runContainer(imageName)
@@ -188,7 +214,7 @@ func runHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func stopHandler(w http.ResponseWriter, r *http.Request) {
+func containerStopHandler(w http.ResponseWriter, r *http.Request) {
 	pathSplit := strings.Split(r.URL.Path, "/")
 	containerId := pathSplit[len(pathSplit)-1]
 	err := stopContainer(containerId)
@@ -200,16 +226,35 @@ func stopHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func containerRemoveHandler(w http.ResponseWriter, r *http.Request) {
+	pathSplit := strings.Split(r.URL.Path, "/")
+	containerId := pathSplit[len(pathSplit)-1]
+	err := removeContainer(containerId)
+	if err == nil {
+		fmt.Fprintf(w, "OK")
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, err.Error())
+	}
+}
+
 func addHost(hostName string) error {
-	hosts[hostName] = true
+	fmt.Println("host add")
+	if _, ok := hosts[hostName]; ok {
+		return errors.New("host already exists")
+	} else {
+		hosts[hostName] = true
+	}
 	return nil
 }
 
-func addHostHandler(w http.ResponseWriter, r *http.Request) {
+func hostAddHandler(w http.ResponseWriter, r *http.Request) {
 	pathSplit := strings.Split(r.URL.Path, "/")
 	hostName := pathSplit[len(pathSplit)-1]
+	fmt.Println(hostName)
 	err := addHost(hostName)
 	if err != nil {
+		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -218,15 +263,21 @@ func addHostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func removeHost(hostName string) error {
-	delete(hosts, hostName)
+	fmt.Println("remove host")
+	if _, ok := hosts[hostName]; ok {
+		delete(hosts, hostName)
+	} else {
+		return errors.New("hostname not found")
+	}
 	return nil
 }
 
-func removeHostHandler(w http.ResponseWriter, r *http.Request) {
+func hostRemoveHandler(w http.ResponseWriter, r *http.Request) {
 	pathSplit := strings.Split(r.URL.Path, "/")
 	hostName := pathSplit[len(pathSplit)-1]
 	err := removeHost(hostName)
 	if err != nil {
+		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -235,6 +286,7 @@ func removeHostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func listHosts() (string, error) {
+	fmt.Println("list hosts")
 	var l []string
 	for k, _ := range hosts {
 		l = append(l, k)
@@ -243,9 +295,10 @@ func listHosts() (string, error) {
 	return s, nil
 }
 
-func listHostsHandler(w http.ResponseWriter, r *http.Request) {
+func hostListHandler(w http.ResponseWriter, r *http.Request) {
 	s, err := listHosts()
 	if err != nil {
+		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -255,16 +308,18 @@ func listHostsHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	fmt.Println("starting server")
-	http.HandleFunc("/upload/", storageUploadHandler)
-	http.HandleFunc("/download/", storageDownloadHandler)
-	http.HandleFunc("/remove/", storageRemoveHandler)
-	http.HandleFunc("/list", storageListHandler)
-	http.HandleFunc("/run/", runHandler)
-	http.HandleFunc("/stop/", stopHandler)
-	http.HandleFunc("/list/", listHandler)
-	http.HandleFunc("/add_host/", addHostHandler)
-	http.HandleFunc("/remove_host/", removeHostHandler)
-	http.HandleFunc("/list_hosts", listHostsHandler)
+	hosts = make(map[string]bool)
+	http.HandleFunc("/storage_upload/", storageUploadHandler)
+	http.HandleFunc("/storage_download/", storageDownloadHandler)
+	http.HandleFunc("/storage_remove/", storageRemoveHandler)
+	http.HandleFunc("/storage_list", storageListHandler)
+	http.HandleFunc("/container_run/", containerRunHandler)
+	http.HandleFunc("/container_stop/", containerStopHandler)
+	http.HandleFunc("/container_list", containerListhandler)
+	http.HandleFunc("/container_remove/", containerRemoveHandler)
+	http.HandleFunc("/host_add/", hostAddHandler)
+	http.HandleFunc("/host_remove/", hostRemoveHandler)
+	http.HandleFunc("/host_list", hostListHandler)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		panic(err)
 	}
