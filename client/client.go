@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -10,6 +11,11 @@ import (
 
 const hostname = "http://localhost:8888"
 const actions = "storage_upload, storage_download, storage_remove, storage_list, container_run, container_stop, container_list, container_remove, host_add, host_remove, host_list"
+
+type Container struct {
+	Image string
+	Name  string
+}
 
 func storageUpload(name string) error {
 	dat, err1 := ioutil.ReadFile(name)
@@ -137,25 +143,12 @@ func storage(action, name string) {
 
 // get mysql run
 // get mysql stop id
-func req(httpMethod, action, id string, body []byte) ([]byte, error) {
+func req(action string, bodyBuffer *bytes.Buffer) ([]byte, error) {
 	url := ""
-	if id != "" {
-		// http://localhost:8888/host_add/redis
-		url = fmt.Sprintf("%s/%s/%s", hostname, action, id)
-	} else {
-		// http://localhost:8888/container_list
-		url = fmt.Sprintf("%s/%s", hostname, action)
-	}
-	fmt.Println(url)
-	var err1 error
-	var resp *http.Response
-	if httpMethod == "post" {
-		bodybuffer := bytes.NewBuffer(body)
-		resp, err1 = http.Post(url, "application/octet-stream", bodybuffer)
-		defer resp.Body.Close()
-	} else {
-		resp, err1 = http.Get(url)
-	}
+	// http://localhost:8888/container_add
+	url = fmt.Sprintf("%s/%s", hostname, action)
+	resp, err1 := http.Post(url, "application/json", bodyBuffer)
+	defer resp.Body.Close()
 	if err1 != nil {
 		fmt.Println(err1)
 		panic("request error")
@@ -174,14 +167,16 @@ func req(httpMethod, action, id string, body []byte) ([]byte, error) {
 
 // mysql run
 // mysql stop id
-func container(action, name string) string {
+// mysql list
+func container(action, image, name string) string {
 	var err error
 	var resp []byte
+	c := Container{image, name}
+	b := new(bytes.Buffer)
+	json.NewEncoder(b).Encode(c)
 	switch action {
-	case "container_list":
-		resp, err = req("get", action, "", []byte(""))
-	case "container_run", "container_stop", "container_remove":
-		resp, err = req("get", action, name, []byte(""))
+	case "container_list", "container_run", "container_stop", "container_remove":
+		resp, err = req(action, b)
 	default:
 		panic("unknown action")
 	}
@@ -192,19 +187,23 @@ func container(action, name string) string {
 	return string(resp)
 }
 
+type Host struct {
+	Name string
+	Port string
+}
+
 // hosts add localhost
 // hosts delete localhost
 // hosts list
-func hosts(action, name string) string {
+func hosts(action, hostName, hostPort string) string {
 	var resp []byte
 	var err error
+	h := Host{hostName, hostPort}
+	b := new(bytes.Buffer)
+	json.NewEncoder(b).Encode(h)
 	switch action {
 	case "host_add", "host_remove", "host_list":
-		if action == "host_list" {
-			resp, err = req("get", action, "", []byte(""))
-		} else {
-			resp, err = req("get", action, name, []byte(""))
-		}
+		resp, err = req(action, b)
 		if err != nil {
 			fmt.Println(err)
 			panic("get error")
@@ -215,12 +214,15 @@ func hosts(action, name string) string {
 		panic("unknown action")
 	}
 }
+
 func main() {
 	// client --type storage --action upload --name file
 	// client --type storage --action list
-	var action, name string
+	var action, name, image, port string
 	flag.StringVar(&action, "action", "", actions)
+	flag.StringVar(&image, "image", "", "redis or mysql")
 	flag.StringVar(&name, "name", "", "container/file/host name")
+	flag.StringVar(&port, "port", "", "host port")
 	flag.Parse()
 	switch action {
 	case "storage_upload", "storage_download", "storage_remove", "storage_list":
@@ -232,9 +234,9 @@ func main() {
 			panic("file name required")
 		}
 	case "container_run", "container_stop", "container_list, container_remove":
-		_ = container(action, name)
+		_ = container(action, image, name)
 	case "host_add", "host_remove", "host_list":
-		_ = hosts(action, name)
+		_ = hosts(action, name, port)
 	default:
 		panic(actions)
 	}

@@ -5,64 +5,39 @@ import (
 	"testing"
 )
 
-var id string
-
-func TestStorageUpload(t *testing.T) {
+func TestStorage(t *testing.T) {
 	err := storageUpload("test")
 	if err != nil {
 		fmt.Println(err)
-		t.Errorf("error")
+		t.Errorf("storage upload error")
+	}
+	err2 := storageDownload("test")
+	if err2 != nil {
+		fmt.Println(err2)
+		t.Errorf("storage download error")
+	}
+	err3 := storageList()
+	if err3 != nil {
+		fmt.Println(err3)
+		t.Errorf("storage list error")
+	}
+	err4 := storageRemove("test")
+	if err4 != nil {
+		fmt.Println(err4)
+		t.Errorf("storage remove error")
 	}
 }
 
-func TestStorageDownload(t *testing.T) {
-	err := storageDownload("test")
-	if err != nil {
-		fmt.Println(err)
-		t.Errorf("error")
-	}
+func TestContainer(t *testing.T) {
+	_ = container("container_run", "redis", "redis-test")
+	//_ = exec.Command("docker ps ", "a-z", "A-Z")
+	_ = container("container_list", "redis", "")
+	_ = container("container_stop", "redis", "redis-test")
+	_ = container("container_remove", "redis", "redis-test")
 }
 
-func TestStorageList(t *testing.T) {
-	err := storageList()
-	if err != nil {
-		fmt.Println(err)
-		t.Errorf("error")
-	}
-}
-
-func TestStorageRemove(t *testing.T) {
-	err := storageRemove("test")
-	if err != nil {
-		fmt.Println(err)
-		t.Errorf("error")
-	}
-}
-
-func TestRunContainer(t *testing.T) {
-	id = container("container_run", "redis")
-}
-
-func TestListContainer(t *testing.T) {
-	_ = container("container_list", "")
-}
-
-func TestStopContainer(t *testing.T) {
-	_ = container("container_stop", id)
-}
-
-func TestRemoveContainer(t *testing.T) {
-	_ = container("container_remove", id)
-}
-
-func TestAddHost(t *testing.T) {
+/*func TestHost(t *testing.T) {
 	_ = hosts("host_add", "localhost")
-}
-
-func TestRemoveHost(t *testing.T) {
-	_ = hosts("host_remove", "localhost")
-}
-
-func TestListHosts(t *testing.T) {
 	_ = hosts("host_list", "")
-}
+	_ = hosts("host_remove", "localhost")
+}*/

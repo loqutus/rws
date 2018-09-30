@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/docker/docker/api/types"
@@ -130,7 +131,7 @@ func containerListhandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(s))
 }
 
-func runContainer(imageName string) (string, error) {
+func runContainer(imageName, containerName string) (string, error) {
 	fmt.Println("run container")
 	ctx := context.Background()
 	c := client.WithVersion("1.38")
@@ -148,7 +149,7 @@ func runContainer(imageName string) (string, error) {
 	}
 	resp, err3 := cli.ContainerCreate(ctx, &container.Config{
 		Image: imageName,
-	}, nil, nil, "")
+	}, nil, nil, containerName)
 	if err3 != nil {
 		fmt.Println("container create error")
 		fmt.Println(resp)
@@ -202,15 +203,23 @@ func removeContainer(containerId string) error {
 	return nil
 }
 
+type Container struct {
+	Image string
+	Name  string
+}
+
 func containerRunHandler(w http.ResponseWriter, r *http.Request) {
-	pathSplit := strings.Split(r.URL.Path, "/")
-	imageName := pathSplit[len(pathSplit)-1]
-	id, err := runContainer(imageName)
+	var c Container
+	err := json.NewDecoder(r.Body).Decode(&c)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	id, err := runContainer(c.Image, c.Name)
 	if err == nil {
 		fmt.Fprintf(w, id)
 	} else {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, err.Error())
+		http.Error(w, err.Error(), 500)
 	}
 }
 
@@ -251,7 +260,6 @@ func addHost(hostName string) error {
 func hostAddHandler(w http.ResponseWriter, r *http.Request) {
 	pathSplit := strings.Split(r.URL.Path, "/")
 	hostName := pathSplit[len(pathSplit)-1]
-	fmt.Println(hostName)
 	err := addHost(hostName)
 	if err != nil {
 		w.WriteHeader(http.StatusOK)
@@ -267,7 +275,7 @@ func removeHost(hostName string) error {
 	if _, ok := hosts[hostName]; ok {
 		delete(hosts, hostName)
 	} else {
-		return errors.New("hostname not found")
+		return errors.New("host not found")
 	}
 	return nil
 }
@@ -291,15 +299,20 @@ func listHosts() (string, error) {
 	for k, _ := range hosts {
 		l = append(l, k)
 	}
-	s := strings.Join(l, "\n")
-	return s, nil
+	if len(l) > 0 {
+		s := strings.Join(l, "\n")
+		fmt.Println(s)
+		return s, nil
+	} else {
+		return "", errors.New("hosts list is empty")
+	}
 }
 
 func hostListHandler(w http.ResponseWriter, r *http.Request) {
 	s, err := listHosts()
 	if err != nil {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "OK")
+		fmt.Fprintf(w, s)
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, s)
@@ -313,12 +326,12 @@ func main() {
 	http.HandleFunc("/storage_download/", storageDownloadHandler)
 	http.HandleFunc("/storage_remove/", storageRemoveHandler)
 	http.HandleFunc("/storage_list", storageListHandler)
-	http.HandleFunc("/container_run/", containerRunHandler)
-	http.HandleFunc("/container_stop/", containerStopHandler)
+	http.HandleFunc("/container_run", containerRunHandler)
+	http.HandleFunc("/container_stop", containerStopHandler)
 	http.HandleFunc("/container_list", containerListhandler)
-	http.HandleFunc("/container_remove/", containerRemoveHandler)
-	http.HandleFunc("/host_add/", hostAddHandler)
-	http.HandleFunc("/host_remove/", hostRemoveHandler)
+	http.HandleFunc("/container_remove", containerRemoveHandler)
+	http.HandleFunc("/host_add", hostAddHandler)
+	http.HandleFunc("/host_remove", hostRemoveHandler)
 	http.HandleFunc("/host_list", hostListHandler)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		panic(err)
