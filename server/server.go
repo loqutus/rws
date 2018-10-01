@@ -118,7 +118,9 @@ func listContainers(typeName string) string {
 		return ""
 	}
 	for _, c := range containers {
-		l = append(l, c.ID)
+		for _, n := range c.Names {
+			l = append(l, n)
+		}
 	}
 	s := strings.Join(l, "\n")
 	return s
@@ -145,6 +147,7 @@ func runContainer(imageName, containerName string) (string, error) {
 	if err2 != nil {
 		fmt.Println("image pull error")
 		fmt.Println(out)
+		fmt.Println(err2)
 		return "", err2
 	}
 	resp, err3 := cli.ContainerCreate(ctx, &container.Config{
@@ -164,7 +167,7 @@ func runContainer(imageName, containerName string) (string, error) {
 	return resp.ID, nil
 }
 
-func stopContainer(containerId string) error {
+func stopContainer(containerName string) error {
 	fmt.Println("stop container")
 	ctx := context.Background()
 	c := client.WithVersion("1.38")
@@ -174,6 +177,7 @@ func stopContainer(containerId string) error {
 		fmt.Println(err1)
 		return err1
 	}
+	containerId, _ := getContainerId(containerName)
 	err2 := cli.ContainerStop(ctx, containerId, nil)
 	if err2 != nil {
 		fmt.Println("container stop error")
@@ -183,8 +187,38 @@ func stopContainer(containerId string) error {
 	return nil
 }
 
-func removeContainer(containerId string) error {
+func getContainerId(containerName string) (string, error) {
+	fmt.Println("get containerId")
+	c := client.WithVersion("1.38")
+	cli, err := client.NewClientWithOpts(c)
+	if err != nil {
+		fmt.Println("client create error")
+		fmt.Println(err)
+		return "", err
+	}
+	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{})
+	if err != nil {
+		fmt.Println("containerList error")
+		fmt.Println(err)
+		return "", err
+	}
+	for _, c := range containers {
+		for _, name := range c.Names {
+			if name == containerName {
+				return c.ID, nil
+			}
+		}
+	}
+	return "", errors.New("container not found")
+}
+
+func removeContainer(containerName string) error {
 	fmt.Println("remove container")
+	containerID, err := getContainerId(containerName)
+	if err != nil {
+		fmt.Println("get container id errors")
+		panic(err)
+	}
 	ctx := context.Background()
 	c := client.WithVersion("1.38")
 	cli, err1 := client.NewClientWithOpts(c)
@@ -194,7 +228,7 @@ func removeContainer(containerId string) error {
 		return err1
 	}
 	opts := types.ContainerRemoveOptions{RemoveVolumes: false, RemoveLinks: false, Force: false}
-	err2 := cli.ContainerRemove(ctx, containerId, opts)
+	err2 := cli.ContainerRemove(ctx, containerID, opts)
 	if err2 != nil {
 		fmt.Println("container remove error:")
 		fmt.Println(err2)
@@ -224,22 +258,31 @@ func containerRunHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func containerStopHandler(w http.ResponseWriter, r *http.Request) {
-	pathSplit := strings.Split(r.URL.Path, "/")
-	containerId := pathSplit[len(pathSplit)-1]
-	err := stopContainer(containerId)
-	if err == nil {
+	var c Container
+	err := json.NewDecoder(r.Body).Decode(&c)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	err2 := stopContainer(c.Name)
+	if err2 == nil {
 		fmt.Fprintf(w, "OK")
 	} else {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, err.Error())
+		http.Error(w, err.Error(), 500)
 	}
 }
 
 func containerRemoveHandler(w http.ResponseWriter, r *http.Request) {
+	var c Container
+	err := json.NewDecoder(r.Body).Decode(&c)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 	pathSplit := strings.Split(r.URL.Path, "/")
 	containerId := pathSplit[len(pathSplit)-1]
-	err := removeContainer(containerId)
-	if err == nil {
+	err2 := removeContainer(containerId)
+	if err2 == nil {
 		fmt.Fprintf(w, "OK")
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
