@@ -178,6 +178,7 @@ func stopContainer(containerName string) error {
 		return err1
 	}
 	containerId, _ := getContainerId(containerName)
+	fmt.Println(containerId)
 	err2 := cli.ContainerStop(ctx, containerId, nil)
 	if err2 != nil {
 		fmt.Println("container stop error")
@@ -196,7 +197,7 @@ func getContainerId(containerName string) (string, error) {
 		fmt.Println(err)
 		return "", err
 	}
-	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{})
+	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{All: true})
 	if err != nil {
 		fmt.Println("containerList error")
 		fmt.Println(err)
@@ -204,7 +205,7 @@ func getContainerId(containerName string) (string, error) {
 	}
 	for _, c := range containers {
 		for _, name := range c.Names {
-			if name == containerName {
+			if name[1:] == containerName {
 				return c.ID, nil
 			}
 		}
@@ -216,7 +217,7 @@ func removeContainer(containerName string) error {
 	fmt.Println("remove container")
 	containerID, err := getContainerId(containerName)
 	if err != nil {
-		fmt.Println("get container id errors")
+		fmt.Println("get container id error")
 		panic(err)
 	}
 	ctx := context.Background()
@@ -279,9 +280,7 @@ func containerRemoveHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	pathSplit := strings.Split(r.URL.Path, "/")
-	containerId := pathSplit[len(pathSplit)-1]
-	err2 := removeContainer(containerId)
+	err2 := removeContainer(c.Name)
 	if err2 == nil {
 		fmt.Fprintf(w, "OK")
 	} else {
