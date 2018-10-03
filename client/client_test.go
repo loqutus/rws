@@ -44,8 +44,11 @@ func TestContainer(t *testing.T) {
 	_ = container("container_remove", "redis", "redis-test")
 }
 
-/*func TestHost(t *testing.T) {
-	_ = hosts("host_add", "localhost")
-	_ = hosts("host_list", "")
-	_ = hosts("host_remove", "localhost")
-}*/
+func TestHost(t *testing.T) {
+	fmt.Println("test host add")
+	_ = hosts("host_add", "localhost", "9999")
+	fmt.Println("test host list")
+	_ = hosts("host_list", "", "")
+	fmt.Println("test host remove")
+	_ = hosts("host_remove", "localhost", "9999")
+}

@@ -155,6 +155,7 @@ func req(action string, bodyBuffer *bytes.Buffer) ([]byte, error) {
 	}
 	if resp.StatusCode != 200 {
 		fmt.Println(resp.StatusCode)
+		fmt.Println(resp)
 		panic("request status code error")
 	}
 	b, err2 := ioutil.ReadAll(resp.Body)
@@ -208,7 +209,6 @@ func hosts(action, hostName, hostPort string) string {
 			fmt.Println(err)
 			panic("get error")
 		}
-		fmt.Println(string(resp))
 		return string(resp)
 	default:
 		panic("unknown action")

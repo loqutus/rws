@@ -299,16 +299,25 @@ func addHost(hostName string) error {
 	return nil
 }
 
+type Host struct {
+	Name string
+	Port string
+}
+
 func hostAddHandler(w http.ResponseWriter, r *http.Request) {
-	pathSplit := strings.Split(r.URL.Path, "/")
-	hostName := pathSplit[len(pathSplit)-1]
-	err := addHost(hostName)
+	var h Host
+	err := json.NewDecoder(r.Body).Decode(&h)
 	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	err2 := addHost(h.Name)
+	if err2 == nil {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, err.Error())
+		fmt.Fprintf(w, err2.Error())
 	}
 }
 
@@ -323,15 +332,19 @@ func removeHost(hostName string) error {
 }
 
 func hostRemoveHandler(w http.ResponseWriter, r *http.Request) {
-	pathSplit := strings.Split(r.URL.Path, "/")
-	hostName := pathSplit[len(pathSplit)-1]
-	err := removeHost(hostName)
+	var h Host
+	err := json.NewDecoder(r.Body).Decode(&h)
 	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	err2 := removeHost(h.Name)
+	if err2 == nil {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, err.Error())
+		fmt.Fprintf(w, err2.Error())
 	}
 }
 
@@ -343,7 +356,6 @@ func listHosts() (string, error) {
 	}
 	if len(l) > 0 {
 		s := strings.Join(l, "\n")
-		fmt.Println(s)
 		return s, nil
 	} else {
 		return "", errors.New("hosts list is empty")
@@ -352,12 +364,12 @@ func listHosts() (string, error) {
 
 func hostListHandler(w http.ResponseWriter, r *http.Request) {
 	s, err := listHosts()
-	if err != nil {
+	if err == nil {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, s)
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, s)
+		fmt.Fprintf(w, "error")
 	}
 }
 
