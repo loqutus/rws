@@ -7,6 +7,9 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/mem"
 	"golang.org/x/net/context"
 	"io/ioutil"
 	"net/http"
@@ -37,6 +40,7 @@ func storageUploadHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
 	fmt.Println("file " + fileName + " uploaded")
 	w.WriteHeader(http.StatusOK)
 }
@@ -373,6 +377,41 @@ func hostListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type HostConfig struct {
+	CPUS   int
+	MEMORY uint64
+	DISK   uint64
+}
+
+func hostInfo() (string, error) {
+	ci, err1 := cpu.Info()
+	if err1 != nil {
+		return "", err1
+	}
+	mi, err2 := mem.VirtualMemory()
+	if err2 != nil {
+		return "", err2
+	}
+	di, err3 := disk.Usage("/")
+	if err3 != nil {
+		return "", err3
+	}
+	c := HostConfig{len(ci), mi.Available, di.Free}
+	b, err := json.Marshal(c)
+	return string(b), err
+}
+
+func hostInfoHandler(w http.ResponseWriter, r *http.Request) {
+	s, err := hostInfo()
+	if err == nil {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, s)
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "error")
+	}
+}
+
 func main() {
 	fmt.Println("starting server")
 	hosts = make(map[string]bool)
@@ -387,6 +426,7 @@ func main() {
 	http.HandleFunc("/host_add", hostAddHandler)
 	http.HandleFunc("/host_remove", hostRemoveHandler)
 	http.HandleFunc("/host_list", hostListHandler)
+	http.HandleFunc("/host_info", hostInfoHandler)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		panic(err)
 	}

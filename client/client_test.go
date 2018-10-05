@@ -35,7 +35,6 @@ func TestStorage(t *testing.T) {
 func TestContainer(t *testing.T) {
 	fmt.Println("test container run")
 	_ = container("container_run", "redis", "redis-test")
-	//_ = exec.Command("docker ps ", "a-z", "A-Z")
 	fmt.Println("test container list")
 	_ = container("container_list", "redis", "")
 	fmt.Println("test container stop")
@@ -51,4 +50,9 @@ func TestHost(t *testing.T) {
 	_ = hosts("host_list", "", "")
 	fmt.Println("test host remove")
 	_ = hosts("host_remove", "localhost", "9999")
+}
+
+func TestHostInfo(t *testing.T) {
+	fmt.Println("test host info")
+	_ = hosts("host_info", "", "")
 }

@@ -10,7 +10,7 @@ import (
 )
 
 const hostname = "http://localhost:8888"
-const actions = "storage_upload, storage_download, storage_remove, storage_list, container_run, container_stop, container_list, container_remove, host_add, host_remove, host_list"
+const actions = "storage_upload, storage_download, storage_remove, storage_list, container_run, container_stop, container_list, container_remove, host_add, host_remove, host_list, host_info"
 
 type Container struct {
 	Image string
@@ -203,7 +203,7 @@ func hosts(action, hostName, hostPort string) string {
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(h)
 	switch action {
-	case "host_add", "host_remove", "host_list":
+	case "host_add", "host_remove", "host_list", "host_info":
 		resp, err = req(action, b)
 		if err != nil {
 			fmt.Println(err)
@@ -235,7 +235,7 @@ func main() {
 		}
 	case "container_run", "container_stop", "container_list, container_remove":
 		_ = container(action, image, name)
-	case "host_add", "host_remove", "host_list":
+	case "host_add", "host_remove", "host_list", "host_info":
 		_ = hosts(action, name, port)
 	default:
 		panic(actions)
