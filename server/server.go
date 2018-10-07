@@ -20,7 +20,7 @@ import (
 const addr = "localhost:8888"
 const dataDir = "data"
 
-var hosts map[string]bool
+var hosts map[string]string
 
 func storageUploadHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("storage upload")
@@ -31,75 +31,240 @@ func storageUploadHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	fileSize := len(body)
 	pathSplit := strings.Split(r.URL.Path, "/")
 	fileName := fmt.Sprintf("%s/%s", dataDir, pathSplit[len(pathSplit)-1])
-	err2 := ioutil.WriteFile(fileName, []byte(body), 0644)
-	if err2 != nil {
-		fmt.Println("file write error")
-		fmt.Println(err2)
+	files, err3 := storageList()
+	if err3 != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println("storage list error")
 		return
 	}
+	fileSplit := strings.Split(files, "\n")
+	for _, file := range fileSplit {
+		if file == fileName {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Println("file already exists")
+			return
+		}
+	}
+	di, err2 := disk.Usage("/")
+	if err2 != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println("disk usage error")
+		return
+	}
+	if di.Free > uint64(fileSize) {
+		err2 := ioutil.WriteFile(fileName, []byte(body), 0644)
+		if err2 != nil {
+			fmt.Println("file write error")
+			fmt.Println(err2)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		fmt.Println("file " + fileName + " uploaded")
+		w.WriteHeader(http.StatusOK)
+		return
+	} else {
+		for host, port := range hosts {
+			url := fmt.Sprintf("http://%s:%s/host_info", host, port)
+			body, err := http.Get(url)
+			if err != nil {
+				fmt.Println("get error")
+				fmt.Println(body)
+				continue
+			}
+			var thatHost HostConfig
+			json.NewDecoder(body.Body).Decode(&thatHost)
+			if uint64(fileSize) < thatHost.DISK {
+				fmt.Println("uploading to " + host + ":" + port)
+				url := fmt.Sprintf("%s:%s/storage_upload/%s", host, port, fileName)
+				dat, err := http.Post(url, "application/octet-stream", r.Body)
+				if err != nil {
+					fmt.Println("post error")
+					fmt.Println(dat)
+					continue
+				}
+			}
+		}
+	}
+	fmt.Println("file upload error")
 
-	fmt.Println("file " + fileName + " uploaded")
-	w.WriteHeader(http.StatusOK)
 }
 
 func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("storage download")
 	pathSplit := strings.Split(r.URL.Path, "/")
 	fileName := pathSplit[len(pathSplit)-1]
-	dat, err1 := ioutil.ReadFile(fmt.Sprintf("data/%s", fileName))
-	if err1 != nil {
-		fmt.Println("file read error: " + fileName)
-		fmt.Println(err1)
+	files, err3 := storageList()
+	if err3 != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println("storage list error")
 		return
 	}
-	_, err2 := w.Write(dat)
-	if err2 != nil {
-		fmt.Println("request write error")
-		fmt.Println(err2)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+	fileSplit := strings.Split(files, "\n")
+	for _, file := range fileSplit {
+		if file == fileName {
+			dat, err1 := ioutil.ReadFile(fmt.Sprintf("data/%s", fileName))
+			if err1 != nil {
+				fmt.Println("file read error: " + fileName)
+				fmt.Println(err1)
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("file read error"))
+				return
+			}
+			_, err2 := w.Write(dat)
+			if err2 != nil {
+				fmt.Println("request write error")
+				fmt.Println(err2)
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("request write error"))
+				return
+			}
+			fmt.Println("file " + fileName + " downloaded")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 	}
-	fmt.Println("file " + fileName + " downloaded")
-	w.WriteHeader(http.StatusOK)
+	for host, port := range hosts {
+		url := fmt.Sprintf("http://%s:%s/list_files", host, port)
+		body, err := http.Get(url)
+		if err != nil {
+			fmt.Println("get error")
+			fmt.Println(body)
+			continue
+		}
+		fileSplit := strings.Split(files, "\n")
+		for _, file := range fileSplit {
+			if file == fileName {
+				url := fmt.Sprintf("%s:%s/storage_download/%s", host, port, fileName)
+				dat, err1 := http.Get(url)
+				if err1 != nil {
+					fmt.Println(err1)
+					panic("get error")
+				}
+				if dat.StatusCode != 200 {
+					fmt.Println(dat.StatusCode)
+					panic("status code error")
+				}
+				bodyBytes, err2 := ioutil.ReadAll(dat.Body)
+				if err2 != nil {
+					fmt.Println(err2)
+					panic("body read error")
+				}
+				w.WriteHeader(http.StatusOK)
+				w.Write(bodyBytes)
+				return
+			}
+		}
+	}
+	w.WriteHeader(http.StatusInternalServerError)
+	w.Write([]byte("file not found"))
+	return
 }
 
 func storageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("storage remove")
 	pathSplit := strings.Split(r.URL.Path, "/")
 	fileName := pathSplit[len(pathSplit)-1]
-	err := os.Remove(fmt.Sprintf("data/%s", fileName))
+	files, err := storageList()
 	if err != nil {
-		fmt.Println("file remove error: " + fileName)
-		fmt.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println("storage list error")
 		return
 	}
-	fmt.Println("file " + fileName + " removed")
+	fileSplit := strings.Split(files, "\n")
+	for _, file := range fileSplit {
+		if file == fileName {
+			err := os.Remove(fmt.Sprintf("data/%s", fileName))
+			if err != nil {
+				fmt.Println("file remove error: " + fileName)
+				fmt.Println(err)
+				return
+			}
+			fmt.Println("file " + fileName + " removed locally")
+
+		}
+	}
+	for host, port := range hosts {
+		url := fmt.Sprintf("http://%s:%s/storage_remove/%s", host, port, fileName)
+		body, err := http.Get(url)
+		if err != nil {
+			fmt.Println("get error")
+			fmt.Println(body)
+			continue
+		}
+		if body.StatusCode != 200 {
+			fmt.Println(body.StatusCode)
+			panic("status code error")
+			continue
+		}
+		fmt.Println("file " + fileName + " removed from host " + host)
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
-func storageListHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("storage list")
+func storageList() (string, error) {
 	files, err := ioutil.ReadDir(dataDir)
 	if err != nil {
-		fmt.Println("dir list error")
-		fmt.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return "", err
 	}
 	var l []string
 	for _, f := range files {
 		l = append(l, f.Name())
 	}
+	for host, port := range hosts {
+		url := fmt.Sprintf("http://%s:%s/storage_list", host, port)
+		body, err := http.Get(url)
+		if err != nil {
+			fmt.Println("get error")
+			fmt.Println(body.Body)
+			continue
+		}
+		if body.StatusCode != 200 {
+			fmt.Println(body.StatusCode)
+			panic("status code error")
+			continue
+		}
+		b, err2 := ioutil.ReadAll(body.Body)
+		if err2 != nil {
+			fmt.Println(err2)
+			panic("response read error")
+		}
+		fileSplit := strings.Split(string(b), "\n")
+		for _, fileRemote := range fileSplit {
+			found := false
+			for _, fileLocal := range l {
+				if fileLocal == fileRemote {
+					found = true
+					continue
+				}
+			}
+			if found == false {
+				l = append(l, fileRemote)
+			}
+		}
+	}
 	s := strings.Join(l, "\n")
+	return s, nil
+}
+
+func storageListHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("storage list")
+	s, err := storageList()
+	if err != nil {
+		fmt.Println("storage list error")
+		fmt.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("error"))
+		return
+	}
 	_, err2 := w.Write([]byte(s))
 	if err2 != nil {
 		fmt.Println("request write error")
 		fmt.Println(err2)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("error"))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -293,12 +458,12 @@ func containerRemoveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func addHost(hostName string) error {
+func addHost(hostName, port string) error {
 	fmt.Println("host add")
 	if _, ok := hosts[hostName]; ok {
 		return errors.New("host already exists")
 	} else {
-		hosts[hostName] = true
+		hosts[hostName] = port
 	}
 	return nil
 }
@@ -315,7 +480,7 @@ func hostAddHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	err2 := addHost(h.Name)
+	err2 := addHost(h.Name, h.Port)
 	if err2 == nil {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
@@ -414,7 +579,7 @@ func hostInfoHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	fmt.Println("starting server")
-	hosts = make(map[string]bool)
+	hosts = make(map[string]string)
 	http.HandleFunc("/storage_upload/", storageUploadHandler)
 	http.HandleFunc("/storage_download/", storageDownloadHandler)
 	http.HandleFunc("/storage_remove/", storageRemoveHandler)
