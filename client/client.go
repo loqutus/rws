@@ -10,7 +10,7 @@ import (
 )
 
 const hostname = "http://localhost:8888"
-const actions = "storage_upload, storage_download, storage_remove, storage_list, container_run, container_stop, container_list, container_remove, host_add, host_remove, host_list, host_info"
+const actions = "storage_upload, storage_download, storage_remove, storage_list, storage_list_all, container_run, container_stop, container_list, container_remove, host_add, host_remove, host_list, host_info"
 
 type Container struct {
 	Image string
@@ -103,7 +103,26 @@ func storageList() error {
 }
 
 func storageHelp() {
-	fmt.Println("upload, download or list")
+	fmt.Println("upload, download, list or list_all")
+}
+
+func storageListAll() error {
+	url := fmt.Sprintf("%s/storage_list_all", hostname)
+	dat, err1 := http.Get(url)
+	if err1 != nil {
+		panic("get error")
+	}
+	if dat.StatusCode != 200 {
+		fmt.Println(dat.StatusCode)
+		panic("status code error")
+	}
+	bodyBytes, err2 := ioutil.ReadAll(dat.Body)
+	if err2 != nil {
+		fmt.Println(err2)
+		panic("body read error")
+	}
+	fmt.Println(string(bodyBytes))
+	return nil
 }
 
 func storage(action, name string) {
@@ -118,13 +137,13 @@ func storage(action, name string) {
 		err := storageUpload(name)
 		if err != nil {
 			fmt.Println(err)
-			panic("storage upload failure")
+			panic("storage upload failed")
 		}
 	case "storage_download":
 		err := storageDownload(name)
 		if err != nil {
 			fmt.Println(err)
-			panic("storage download failure")
+			panic("storage download failed")
 		}
 	case "storage_list":
 		err := storageList()
@@ -132,11 +151,17 @@ func storage(action, name string) {
 			fmt.Println(err)
 			panic("storage list failure")
 		}
+	case "storage_list_all":
+		err := storageListAll()
+		if err != nil {
+			fmt.Println(err)
+			panic("storage list all failed")
+		}
 	case "storage_remove":
 		err := storageRemove("name")
 		if err != nil {
 			fmt.Println(err)
-			panic("storage remove failure")
+			panic("storage remove failed")
 		}
 	}
 }
@@ -224,8 +249,8 @@ func main() {
 	flag.StringVar(&port, "port", "", "host port")
 	flag.Parse()
 	switch action {
-	case "storage_upload", "storage_download", "storage_remove", "storage_list":
-		if name != "" && action != "storage_list" {
+	case "storage_upload", "storage_download", "storage_remove", "storage_list", "storage_list_all":
+		if name != "" && action != "storage_list" && action != "storage_list_all" {
 			storage(action, name)
 		} else if name == "" && action == "storage_list" {
 			storage(action, "")

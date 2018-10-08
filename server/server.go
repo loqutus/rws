@@ -204,7 +204,7 @@ func storageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func storageList() (string, error) {
+func storageListAll() (string, error) {
 	files, err := ioutil.ReadDir(dataDir)
 	if err != nil {
 		return "", err
@@ -244,6 +244,40 @@ func storageList() (string, error) {
 				l = append(l, fileRemote)
 			}
 		}
+	}
+	s := strings.Join(l, "\n")
+	return s, nil
+}
+
+func storageListAllHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("storage all list")
+	s, err := storageListAll()
+	if err != nil {
+		fmt.Println("storage all list error")
+		fmt.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("error"))
+		return
+	}
+	_, err2 := w.Write([]byte(s))
+	if err2 != nil {
+		fmt.Println("request write error")
+		fmt.Println(err2)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("error"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func storageList() (string, error) {
+	files, err := ioutil.ReadDir(dataDir)
+	if err != nil {
+		return "", err
+	}
+	var l []string
+	for _, f := range files {
+		l = append(l, f.Name())
 	}
 	s := strings.Join(l, "\n")
 	return s, nil
@@ -584,6 +618,7 @@ func main() {
 	http.HandleFunc("/storage_download/", storageDownloadHandler)
 	http.HandleFunc("/storage_remove/", storageRemoveHandler)
 	http.HandleFunc("/storage_list", storageListHandler)
+	http.HandleFunc("/storage_list_all", storageListAllHandler)
 	http.HandleFunc("/container_run", containerRunHandler)
 	http.HandleFunc("/container_stop", containerStopHandler)
 	http.HandleFunc("/container_list", containerListhandler)
