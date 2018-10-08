@@ -25,15 +25,15 @@ func TestStorage(t *testing.T) {
 		t.Errorf("storage list error")
 	}
 	fmt.Println("test storage list all")
-	err3 := storageListAll()
-	if err3 != nil {
-		fmt.Println(err3)
+	err4 := storageListAll()
+	if err4 != nil {
+		fmt.Println(err4)
 		t.Errorf("storage list all error")
 	}
 	fmt.Println("test storage remove")
-	err4 := storageRemove("test")
-	if err4 != nil {
-		fmt.Println(err4)
+	err5 := storageRemove("test")
+	if err5 != nil {
+		fmt.Println(err5)
 		t.Errorf("storage remove error")
 	}
 }
