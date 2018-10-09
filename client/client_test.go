@@ -43,6 +43,8 @@ func TestContainer(t *testing.T) {
 	_ = container("container_run", "redis", "redis-test")
 	fmt.Println("test container list")
 	_ = container("container_list", "redis", "")
+	fmt.Println("test container list all")
+	_ = container("container_list_all", "redis", "")
 	fmt.Println("test container stop")
 	_ = container("container_stop", "redis", "redis-test")
 	fmt.Println("container_remove")

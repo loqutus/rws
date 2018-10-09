@@ -141,16 +141,16 @@ func storageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 				dat, err1 := http.Get(url)
 				if err1 != nil {
 					fmt.Println(err1)
-					panic("get error")
+					fmt.Println("get error")
 				}
 				if dat.StatusCode != 200 {
 					fmt.Println(dat.StatusCode)
-					panic("status code error")
+					fmt.Println("status code error")
 				}
 				bodyBytes, err2 := ioutil.ReadAll(dat.Body)
 				if err2 != nil {
 					fmt.Println(err2)
-					panic("body read error")
+					fmt.Println("body read error")
 				}
 				w.WriteHeader(http.StatusOK)
 				w.Write(bodyBytes)
@@ -196,7 +196,7 @@ func storageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if body.StatusCode != 200 {
 			fmt.Println(body.StatusCode)
-			panic("status code error")
+			fmt.Println("status code error")
 			continue
 		}
 		fmt.Println("file " + fileName + " removed from host " + host)
@@ -223,13 +223,13 @@ func storageListAll() (string, error) {
 		}
 		if body.StatusCode != 200 {
 			fmt.Println(body.StatusCode)
-			panic("status code error")
+			fmt.Println("status code error")
 			continue
 		}
 		b, err2 := ioutil.ReadAll(body.Body)
 		if err2 != nil {
 			fmt.Println(err2)
-			panic("response read error")
+			fmt.Println("response read error")
 		}
 		fileSplit := strings.Split(string(b), "\n")
 		for _, fileRemote := range fileSplit {
@@ -304,7 +304,7 @@ func storageListHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func listContainers(typeName string) string {
+func listContainers() string {
 	fmt.Println("list containers")
 	c := client.WithVersion("1.38")
 	cli, err := client.NewClientWithOpts(c)
@@ -329,10 +329,54 @@ func listContainers(typeName string) string {
 	return s
 }
 
-func containerListhandler(w http.ResponseWriter, r *http.Request) {
-	pathSplit := strings.Split(r.URL.Path, "/")
-	typeName := pathSplit[len(pathSplit)-1]
-	s := listContainers(typeName)
+func listAllContainers() string {
+	localContainers := listContainers()
+	localContainersSplit := strings.Split(localContainers, "\n")
+	for host, port := range hosts {
+		url := fmt.Sprintf("http://%s:%s/container_list", host, port)
+		body, err := http.Get(url)
+		if err != nil {
+			fmt.Println("get error")
+			fmt.Println(body.Body)
+			continue
+		}
+		if body.StatusCode != 200 {
+			fmt.Println(body.StatusCode)
+			fmt.Println("status code error")
+			continue
+		}
+		b, err2 := ioutil.ReadAll(body.Body)
+		if err2 != nil {
+			fmt.Println(err2)
+			fmt.Println("response read error")
+		}
+		remoteContainersSplit := strings.Split(string(b), "\n")
+		for _, containerRemote := range remoteContainersSplit {
+			found := false
+			for _, containerLocal := range localContainersSplit {
+				if containerLocal == containerRemote {
+					found = true
+					break
+				}
+			}
+			if found == false {
+				localContainersSplit = append(localContainersSplit, containerRemote)
+			}
+		}
+	}
+	s := strings.Join(localContainersSplit, "\n")
+	return s
+}
+
+func containerListHandler(w http.ResponseWriter, r *http.Request) {
+	s := listContainers()
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(s))
+}
+
+func containerListAllHandler(w http.ResponseWriter, r *http.Request) {
+	s := listAllContainers()
+	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(s))
 }
 
@@ -421,7 +465,7 @@ func removeContainer(containerName string) error {
 	containerID, err := getContainerId(containerName)
 	if err != nil {
 		fmt.Println("get container id error")
-		panic(err)
+		fmt.Println(err)
 	}
 	ctx := context.Background()
 	c := client.WithVersion("1.38")
@@ -611,6 +655,21 @@ func hostInfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func indexHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("indexHandler")
+	dat, err1 := ioutil.ReadFile("index.html")
+	if err1 != nil {
+		fmt.Println("index file read error: ")
+		fmt.Println(err1)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("index file read error"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write(dat)
+	return
+}
+
 func main() {
 	fmt.Println("starting server")
 	hosts = make(map[string]string)
@@ -621,12 +680,14 @@ func main() {
 	http.HandleFunc("/storage_list_all", storageListAllHandler)
 	http.HandleFunc("/container_run", containerRunHandler)
 	http.HandleFunc("/container_stop", containerStopHandler)
-	http.HandleFunc("/container_list", containerListhandler)
+	http.HandleFunc("/container_list", containerListHandler)
+	http.HandleFunc("/container_list", containerListAllHandler)
 	http.HandleFunc("/container_remove", containerRemoveHandler)
 	http.HandleFunc("/host_add", hostAddHandler)
 	http.HandleFunc("/host_remove", hostRemoveHandler)
 	http.HandleFunc("/host_list", hostListHandler)
 	http.HandleFunc("/host_info", hostInfoHandler)
+	http.HandleFunc("/", indexHandler)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		panic(err)
 	}
