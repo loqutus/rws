@@ -670,6 +670,22 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func PodRunHandler(w http.ResponseWriter, r *http.Request) {
+	return
+}
+
+func PodStopHandler(w http.ResponseWriter, r *http.Request) {
+	return
+}
+
+func PodListHandler(w http.ResponseWriter, r *http.Request) {
+	return
+}
+
+func PodRemoveHandler(w http.ResponseWriter, r *http.Request) {
+	return
+}
+
 func main() {
 	fmt.Println("starting server")
 	hosts = make(map[string]string)
@@ -681,8 +697,12 @@ func main() {
 	http.HandleFunc("/container_run", containerRunHandler)
 	http.HandleFunc("/container_stop", containerStopHandler)
 	http.HandleFunc("/container_list", containerListHandler)
-	http.HandleFunc("/container_list", containerListAllHandler)
+	http.HandleFunc("/container_list_all", containerListAllHandler)
 	http.HandleFunc("/container_remove", containerRemoveHandler)
+	http.HandleFunc("/pod_run", PodRunHandler)
+	http.HandleFunc("/pod_stop", PodStopHandler)
+	http.HandleFunc("/pod_list", PodListHandler)
+	http.HandleFunc("/pod_remove", PodRemoveHandler)
 	http.HandleFunc("/host_add", hostAddHandler)
 	http.HandleFunc("/host_remove", hostRemoveHandler)
 	http.HandleFunc("/host_list", hostListHandler)
