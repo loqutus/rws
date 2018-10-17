@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -670,19 +671,166 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+type pod struct {
+	name    string
+	image   string
+	cpus    int
+	disk    uint64
+	memory  uint64
+	count   int
+	enabled bool
+	ids     []string
+}
+
+var pods []pod
+
 func PodRunHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("pod run")
+	var p pod
+	err := json.NewDecoder(r.Body).Decode(&p)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	pods = append(pods, p)
+	i := 0
+	for host, port := range hosts {
+		if i < p.count {
+			url := fmt.Sprintf("http://%s:%s/host_info", host, port)
+			body, err := http.Get(url)
+			if err != nil {
+				fmt.Println("get error")
+				fmt.Println(body)
+				continue
+			}
+			var thatHost HostConfig
+			json.NewDecoder(body.Body).Decode(&thatHost)
+			if thatHost.DISK >= p.disk && thatHost.CPUS >= p.cpus && thatHost.MEMORY >= p.memory {
+				url := fmt.Sprintf("http://%s:%s/container_run")
+				c := Container{p.image, p.name + "-" + string(i)}
+				b := new(bytes.Buffer)
+				json.NewEncoder(b).Encode(c)
+				resp, err1 := http.Post(url, "application/json", b)
+				if err1 != nil {
+					fmt.Println(err1)
+					fmt.Println("request error")
+					continue
+				}
+				if resp.StatusCode != 200 {
+					fmt.Println("request status code error")
+					fmt.Println(resp.StatusCode)
+					fmt.Println(resp)
+					continue
+				}
+				body, err2 := ioutil.ReadAll(resp.Body)
+				if err2 != nil {
+					fmt.Println("response read error")
+					fmt.Println(err2)
+					continue
+				}
+				p.ids = append(p.ids, string(body))
+				fmt.Println(body)
+				i += 1
+			}
+		} else {
+			break
+		}
+	}
+	fmt.Println("all pod containers running")
 	return
 }
 
 func PodStopHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("pod stop")
+	var p pod
+	err := json.NewDecoder(r.Body).Decode(&p)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	for _, id := range p.ids {
+		for host, port := range hosts {
+			url := fmt.Sprintf("http://%s/%s/container_list", host, port)
+			body, err := http.Get(url)
+			if err != nil {
+				fmt.Println("get error")
+				fmt.Println("body")
+				continue
+			}
+			if body.StatusCode != 200 {
+				fmt.Println(body.StatusCode)
+				fmt.Println("status code error")
+				continue
+			}
+			b, err2 := ioutil.ReadAll(body.Body)
+			if err2 != nil {
+				fmt.Println(err2)
+				fmt.Println("response read error")
+			}
+			remoteContainersSplit := strings.Split(string(b), "\n")
+			for _, remoteContainer := range remoteContainersSplit {
+				if remoteContainer == id {
+					c := Container{"", id}
+					b := new(bytes.Buffer)
+					json.NewEncoder(b).Encode(c)
+					url := fmt.Sprintf("%s:%s/container_stop", host, port)
+					resp, err1 := http.Post(url, "application/json", b)
+					defer resp.Body.Close()
+					if err1 != nil {
+						fmt.Println(err1)
+						fmt.Println("request error")
+						continue
+					}
+					if resp.StatusCode != 200 {
+						fmt.Println(resp.StatusCode)
+						fmt.Println(resp)
+						fmt.Println("request status code error")
+						continue
+					}
+					_, err2 := ioutil.ReadAll(resp.Body)
+					if err2 != nil {
+						fmt.Println(err2)
+						fmt.Println("response read error")
+						continue
+					}
+				}
+			}
+		}
+	}
 	return
 }
 
 func PodListHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("pod list")
+	b := new(bytes.Buffer)
+	json.NewEncoder(b).Encode(pods)
+	w.WriteHeader(http.StatusOK)
+	w.Write(b.Bytes())
 	return
 }
 
 func PodRemoveHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("pod remove")
+	var p pod
+	err := json.NewDecoder(r.Body).Decode(&p)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	removed := false
+	for i, other := range pods {
+		if other.name == p.name {
+			pods = append(pods[:i], pods[i+1:]...)
+			removed = true
+		}
+	}
+	if removed {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(p.name))
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(p.name))
+	}
 	return
 }
 

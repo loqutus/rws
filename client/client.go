@@ -10,7 +10,7 @@ import (
 )
 
 const hostname = "http://localhost:8888"
-const actions = "storage_upload, storage_download, storage_remove, storage_list, storage_list_all, container_run, container_stop, container_list, container_list_all, container_remove, host_add, host_remove, host_list, host_info"
+const actions = "storage_upload, storage_download, storage_remove, storage_list, storage_list_all, container_run, container_stop, container_list, container_list_all, container_remove, host_add, host_remove, host_list, host_info, pod_add, pod_stop, pod_list, pod_remove"
 
 type Container struct {
 	Image string
@@ -239,14 +239,42 @@ func hosts(action, hostName, hostPort string) string {
 	}
 }
 
+type pod struct {
+	name    string
+	image   string
+	cpus    int
+	disk    uint64
+	memory  uint64
+	count   int
+	enabled bool
+	ids     []string
+}
+
+func pods(action, podConfig string) string {
+	b := new(bytes.Buffer)
+	b.Write([]byte(podConfig))
+	switch action {
+	case "pod_add", "pod_remove", "pod_list", "pod_info":
+		resp, err := req(action, b)
+		if err != nil {
+			fmt.Println(err)
+			panic("get error")
+		}
+		return string(resp)
+	default:
+		panic("unknown action")
+	}
+}
+
 func main() {
 	// client --type storage --action upload --name file
 	// client --type storage --action list
-	var action, name, image, port string
+	var action, name, image, port, podConfig string
 	flag.StringVar(&action, "action", "", actions)
 	flag.StringVar(&image, "image", "", "redis or mysql")
 	flag.StringVar(&name, "name", "", "container/file/host name")
 	flag.StringVar(&port, "port", "", "host port")
+	flag.StringVar(&podConfig, "pod_config", "", "pod config")
 	flag.Parse()
 	switch action {
 	case "storage_upload", "storage_download", "storage_remove", "storage_list", "storage_list_all":
@@ -261,6 +289,8 @@ func main() {
 		_ = container(action, image, name)
 	case "host_add", "host_remove", "host_list", "host_info":
 		_ = hosts(action, name, port)
+	case "pod_add", "pod_stop", "pod_remove", "pod_list":
+		_ = pods(action, podConfig)
 	default:
 		panic(actions)
 	}
