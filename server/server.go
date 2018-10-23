@@ -8,6 +8,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/golang/lint/testdata"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
@@ -16,11 +17,12 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"text/template"
 	"time"
 )
 
 const addr = "localhost:8888"
-const dataDir = "data"
+const DataDir = "data"
 
 var hosts map[string]string
 
@@ -35,7 +37,7 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	FileSize := len(body)
 	pathSplit := strings.Split(r.URL.Path, "/")
-	FileName := fmt.Sprintf("%s/%s", dataDir, pathSplit[len(pathSplit)-1])
+	FileName := fmt.Sprintf("%s/%s", DataDir, pathSplit[len(pathSplit)-1])
 	files, err3 := StorageList()
 	if err3 != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -207,7 +209,7 @@ func StorageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func StorageListAll() (string, error) {
-	files, err := ioutil.ReadDir(dataDir)
+	files, err := ioutil.ReadDir(DataDir)
 	if err != nil {
 		return "", err
 	}
@@ -273,7 +275,7 @@ func StorageListAllHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func StorageList() (string, error) {
-	files, err := ioutil.ReadDir(dataDir)
+	files, err := ioutil.ReadDir(DataDir)
 	if err != nil {
 		return "", err
 	}
@@ -660,14 +662,7 @@ func HostInfoHandler(w http.ResponseWriter, r *http.Request) {
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("IndexHandler")
-	dat, err1 := ioutil.ReadFile("index.html")
-	if err1 != nil {
-		fmt.Println("index file read error: ")
-		fmt.Println(err1)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("index file read error"))
-		return
-	}
+
 	w.WriteHeader(http.StatusOK)
 	w.Write(dat)
 	return
@@ -838,11 +833,14 @@ func PodRemoveHandler(w http.ResponseWriter, r *http.Request) {
 func scheduler() {
 	for {
 		fmt.Println("run scheduler")
-		for _, p := range pods {
-			fmt.Println("Pod %s should have %s containers", p.name, len(p.ids))
+		if len(pods) == 0 {
+			fmt.Println("no pods defined")
+			time.Sleep(60 * time.Second)
+			continue
 		}
 		for index, p := range pods {
-			var FoundIds []string
+			fmt.Println("Pod %s should have %s containers", p.name, len(p.ids))
+			var FoundIDs []string
 			for host, port := range hosts {
 				url := fmt.Sprintf("http://%s:%s/containers_list", host, port)
 				body, err := http.Get(url)
@@ -866,53 +864,64 @@ func scheduler() {
 				for _, remoteId := range RemoteContainersSplit {
 					for _, id := range p.ids {
 						if id == remoteId {
-							FoundIds = append(FoundIds, id)
-						}
-					}
-				}
-			}
-			fmt.Println("Pod %s has %s running containers", p.name, len(FoundIds))
-			fmt.Println("Pod %s should have %s running containers", p.name, len(p.ids))
-			if len(FoundIds) < len(p.ids) {
-				RunNum := len(p.ids) - len(FoundIds)
-				i := 0
-				for {
-					for host, port := range hosts {
-						if i < RunNum {
-							url := fmt.Sprintf("%s:%s/container_run", host, port)
-							ContainerNameId := len(p.ids)
-							name := p.name + "-" + string(ContainerNameId)
-							c := Container{p.image, name}
-							b := new(bytes.Buffer)
-							json.NewEncoder(b).Encode(c)
-							resp, err1 := http.Post(url, "application/json", b)
-							if err1 != nil {
-								fmt.Println(err1)
-								panic("request error")
-							}
-							if resp.StatusCode != 200 {
-								fmt.Println(resp.StatusCode)
-								fmt.Println(resp)
-								panic("request status code error")
-							}
-							b2, err2 := ioutil.ReadAll(resp.Body)
-							if err2 != nil {
-								fmt.Println(err2)
-								panic("response read error")
-							}
-							fmt.Println("run new container for pod %s", p.name)
-							pods[index].ids = append(pods[index].ids, string(b2))
-							i += 1
-						} else {
+							FoundIDs = append(FoundIDs, id)
 							break
 						}
 					}
-					if i >= RunNum {
-						break
+				}
+			}
+			fmt.Println("Pod %s have %s running containers", p.name, len(FoundIDs))
+			if len(FoundIDs) < len(p.ids) {
+				for IDNum, ID := range p.ids {
+					found := false
+					for _, FoundID := range FoundIDs {
+						if ID == FoundID {
+							found = true
+							break
+						}
+					}
+					if found == false {
+						p.ids = append(p.ids[:IDNum], p.ids[IDNum+1:]...)
 					}
 				}
-				time.Sleep(60 * time.Second)
+				RunNum := len(p.ids) - len(FoundIDs)
+				i := 0
+				for {
+					for host, port := range hosts {
+						if i >= RunNum {
+							break
+						}
+						url := fmt.Sprintf("%s:%s/container_run", host, port)
+						ContainerNameId := len(p.ids)
+						name := p.name + "-" + string(ContainerNameId)
+						c := Container{p.image, name}
+						b := new(bytes.Buffer)
+						json.NewEncoder(b).Encode(c)
+						resp, err1 := http.Post(url, "application/json", b)
+						if err1 != nil {
+							fmt.Println(err1)
+							panic("request error")
+						}
+						if resp.StatusCode != 200 {
+							fmt.Println(resp.StatusCode)
+							fmt.Println(resp)
+							panic("request status code error")
+						}
+						b2, err2 := ioutil.ReadAll(resp.Body)
+						if err2 != nil {
+							fmt.Println(err2)
+							panic("response read error")
+						}
+						fmt.Println("run new container for pod %s", p.name)
+						pods[index].ids = append(pods[index].ids, string(b2))
+						i += 1
+					}
+				}
+				if i >= RunNum {
+					break
+				}
 			}
+			time.Sleep(60 * time.Second)
 		}
 	}
 }

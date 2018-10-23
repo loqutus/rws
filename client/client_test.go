@@ -64,3 +64,12 @@ func TestHostInfo(t *testing.T) {
 	fmt.Println("test host info")
 	_ = hosts("host_info", "", "")
 }
+
+func TestPod(t *testing.T) {
+	fmt.Println("test pod add")
+	_ = pods("pod_add", "")
+	fmt.Println("test pod list")
+	_ = pods("pod_list", "")
+	fmt.Println("test pod remove")
+	_ = pods("pod_remove", "")
+}
