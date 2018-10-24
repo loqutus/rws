@@ -8,7 +8,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
-	"github.com/golang/lint/testdata"
+	//"github.com/golang/lint/testdata"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
@@ -17,7 +17,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"text/template"
 	"time"
 )
 
@@ -662,9 +661,84 @@ func HostInfoHandler(w http.ResponseWriter, r *http.Request) {
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("IndexHandler")
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(dat)
+	const tpl = `
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>RWS</title>
+	</head>
+	<body>
+		<h2>Storage</h2>
+		<table>
+			<tr>
+				<th>Name</th>
+				<th>Size</th>
+				<th>Host</th>
+			</tr>
+			{{range .Storage}}
+			<tr>
+				<td>{{.name}}</td>
+				<td>{{.size}}</td>
+				<td>{{.host}}</td>
+			</tr>
+			{{end}}
+		</table>
+		<h2>Hosts</h2>
+		<table>
+			<tr>
+				<th>Name</th>
+				<th>CPUS</th>
+				<th>MEM</th>
+				<th>DISK</th>
+			</tr>
+			{{range .Hosts}}
+			<tr>
+				<td>{{.Name}}</td>
+				<td>{{.CPUS}}</td>
+				<td>{{.MEMORY}}</td>
+				<td>{{.DISK}}</td>
+			</tr>
+			{{end}}
+		</table>
+		<h2>Pods</h2>
+		<table>
+			<tr>
+				<th>Name</th>
+				<th>Image</th>
+				<th>Count</th>
+				<th>CPUS</th>
+				<th>Memory</th>
+				<th>DISK</th>
+			</tr>
+			{{range .Pods}}
+			<tr>
+				<td>{{.name}}</td>
+				<td>{{.image}}</td>
+				<td>{{.count}}</td>
+				<td>{{.cpus}}</td>
+				<td>{{.memory}}</td>
+				<td>{{.disk}}</td>
+			<tr>
+			{{end}}
+		</table>
+		<h2>Containers</h2>
+		<table>
+			<tr>
+				<th>Name</th>
+				<th>Image</th>
+				<th>Host</th>
+			</tr>
+			{{range .Containers}}
+			<tr>
+				<td>{{.name}}</td>
+				<td>{{.image}}</td>
+				<td>{{.host}}</td>
+			<tr>
+			{{end}}
+		</table>
+	</body>
+</html>
+`
 	return
 }
 
