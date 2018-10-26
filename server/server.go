@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
 	"golang.org/x/net/context"
+	"html/template"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -35,8 +37,8 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	FileSize := len(body)
-	pathSplit := strings.Split(r.URL.Path, "/")
-	FileName := fmt.Sprintf("%s/%s", DataDir, pathSplit[len(pathSplit)-1])
+	PathSplit := strings.Split(r.URL.Path, "/")
+	FileName := fmt.Sprintf("%s/%s", DataDir, PathSplit[len(PathSplit)-1])
 	files, err3 := StorageList()
 	if err3 != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -99,6 +101,7 @@ func StorageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("storage download")
 	PathSplit := strings.Split(r.URL.Path, "/")
 	FileName := PathSplit[len(PathSplit)-1]
+	fmt.Println("filename: " + FileName)
 	files, err3 := StorageList()
 	if err3 != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -208,13 +211,14 @@ func StorageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func StorageListAll() (string, error) {
+	hostname, _ := os.Hostname()
 	files, err := ioutil.ReadDir(DataDir)
 	if err != nil {
 		return "", err
 	}
 	var l []string
 	for _, f := range files {
-		l = append(l, f.Name())
+		l = append(l, f.Name()+" "+hostname)
 	}
 	for host, port := range hosts {
 		url := fmt.Sprintf("http://%s:%s/storage_list", host, port)
@@ -244,7 +248,7 @@ func StorageListAll() (string, error) {
 				}
 			}
 			if found == false {
-				l = append(l, FileRemote)
+				l = append(l, FileRemote+" "+host+" "+port)
 			}
 		}
 	}
@@ -305,6 +309,21 @@ func StorageListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func StorageFileSizeHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("storage size")
+	PathSplit := strings.Split(r.URL.Path, "/")
+	FileName := PathSplit[len(PathSplit)-1]
+	fmt.Println("filename: " + FileName)
+	fi, e := os.Stat(DataDir + "/" + FileName)
+	if e != nil {
+		fmt.Println("file stat error ")
+	}
+	size := fi.Size()
+	w.Write([]byte(string(size)))
+	w.WriteHeader(http.StatusOK)
+	return
 }
 
 func ListContainers() string {
@@ -659,6 +678,96 @@ func HostInfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type InfoStorage struct {
+	name string
+	size int
+	host string
+}
+
+type InfoHosts struct {
+	Name   string
+	CPUS   int
+	MEMORY int
+	DISK   int
+}
+
+type InfoPods struct {
+	name   string
+	image  string
+	count  int
+	cpus   int
+	memory int
+	disk   int
+}
+
+type InfoContainers struct {
+	name  string
+	image string
+	host  string
+}
+
+type Info struct {
+	Storage    []InfoStorage
+	Hosts      []InfoHosts
+	Pods       []InfoPods
+	Containers []InfoContainers
+}
+
+func GetFileSize(filename, host, port string) (int, error) {
+	url := fmt.Sprintf("http://%s:%s/storage_file_size/%s", host, port, filename)
+	body, err := http.Get(url)
+	if err != nil {
+		fmt.Println("get error")
+		fmt.Println(body.Body)
+		return 0, err
+	}
+	if body.StatusCode != 200 {
+		fmt.Println(body.StatusCode)
+		fmt.Println("status code error")
+		return 0, err
+	}
+	b, err2 := ioutil.ReadAll(body.Body)
+	if err2 != nil {
+		fmt.Println(err2)
+		fmt.Println("response read error")
+		return 0, err2
+	}
+	data := binary.BigEndian.Uint64(b)
+	return int(data), nil
+}
+
+func GetHostInfo(host, port) (InfoHosts, error) {
+	url := fmt.Sprintf("http://%s:%s/host_info", host, port)
+	body, err := http.Get(url)
+	if err != nil {
+		fmt.Println("get error")
+		fmt.Println(body)
+		return InfoHosts{}, err
+	}
+	var ThatHost HostConfig
+	json.NewDecoder(body.Body).Decode(&ThatHost)
+	host := InfoHosts{host, ThatHost.CPUS, ThatHost.MEMORY, ThatHost.DISK}
+	return host, nil
+}
+
+func GetHostPods(host, port) ([]InfoPods, error) {
+	url := fmt.Sprintf("http:%s:%s/pod_list", host, port)
+	body, err := http.Get(url)
+	if err != nil {
+		fmt.Println("get error")
+		fmt.Println(body)
+		return []InfoPods{}, err
+	}
+	var ThatPods []pod
+	json.NewDecoder(body.Body).Decode(&ThatPods)
+	var ThatHostPods []InfoPods
+	for _, pod := range ThatPods {
+		TempPod := InfoPods{pod.name, pod.image, pod.count, pod.cpus, pod.memory, pod.disk}
+		ThatHostPods = append(ThatHostPods, TempPod)
+	}
+	return ThatHostPods, nil
+}
+
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("IndexHandler")
 	const tpl = `
@@ -739,6 +848,55 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	</body>
 </html>
 `
+	var info Info
+	FilesSplit, _ := StorageListAll()
+	FilesSplitSplit := strings.Split(FilesSplit, "\n")
+	for _, FileAndHost := range FilesSplitSplit {
+		PathSplit := strings.Split(FileAndHost, " ")
+		FileName := PathSplit[0]
+		HostName := PathSplit[1]
+		Port := PathSplit[2]
+		FileSize, err := GetFileSize(FileName, HostName, Port)
+		if err != nil {
+			fmt.Println("GetFileSize error ")
+			fmt.Println("file: " + FileName)
+			fmt.Println(err)
+			continue
+		}
+		FileStorage := InfoStorage{FileName, FileSize, HostName}
+		info.Storage = append(info.Storage, FileStorage)
+	}
+	for host, port := range hosts {
+		HostInfo, err := GetHostInfo(host, port)
+		if err != nil {
+			fmt.Println("GetHostInfo error")
+			fmt.Println("host: " + host)
+			fmt.Println(err)
+			continue
+		}
+		InfoHost := InfoHosts{host, HostInfo.CPUS, HostInfo.MEMORY, HostInfo.DISK}
+		info.Hosts = append(info.Hosts, InfoHost)
+	}
+	for host, port := range hosts {
+		HostPods, err := GetHostPods(host, port)
+		if err != nil {
+			fmt.Println("GetHostPods error")
+			fmt.Println("host: " + host)
+			fmt.Println(err)
+			continue
+		}
+		for _, Pod := range HostPods {
+			info.Pods = append(info.Pods, Pod)
+		}
+	}
+	t, err2 := template.New("index").Parse(tpl)
+	if err2 != nil {
+		fmt.Println("index html rendering error")
+		fmt.Println(err2)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err2.Error()))
+	}
+	err = t.Execute(w, info)
 	return
 }
 
@@ -1008,6 +1166,7 @@ func main() {
 	http.HandleFunc("/storage_remove/", StorageRemoveHandler)
 	http.HandleFunc("/storage_list", StorageListHandler)
 	http.HandleFunc("/storage_list_all", StorageListAllHandler)
+	http.HandleFunc("/storage_file_size/", StorageFileSizeHandler)
 	http.HandleFunc("/container_run", ContainerRunHandler)
 	http.HandleFunc("/container_stop", ContainerStopHandler)
 	http.HandleFunc("/container_list", ContainerListHandler)
