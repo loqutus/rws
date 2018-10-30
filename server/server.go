@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-const addr = "localhost:8888"
+const addr = "0.0.0.0:8888"
 const DataDir = "data"
 
 var hosts map[string]string
