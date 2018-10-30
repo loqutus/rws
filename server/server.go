@@ -343,9 +343,8 @@ func ListContainers() string {
 		return ""
 	}
 	for _, c := range containers {
-		for _, n := range c.Names {
-			l = append(l, n)
-		}
+		n := fmt.Sprintf("%s %s", c.ID, c.Image)
+		l = append(l, n)
 	}
 	s := strings.Join(l, "\n")
 	return s
@@ -736,7 +735,7 @@ func GetFileSize(filename, host, port string) (int, error) {
 	return int(data), nil
 }
 
-func GetHostInfo(host, port) (InfoHosts, error) {
+func GetHostInfo(host, port string) (InfoHosts, error) {
 	url := fmt.Sprintf("http://%s:%s/host_info", host, port)
 	body, err := http.Get(url)
 	if err != nil {
@@ -746,12 +745,12 @@ func GetHostInfo(host, port) (InfoHosts, error) {
 	}
 	var ThatHost HostConfig
 	json.NewDecoder(body.Body).Decode(&ThatHost)
-	host := InfoHosts{host, ThatHost.CPUS, ThatHost.MEMORY, ThatHost.DISK}
-	return host, nil
+	h := InfoHosts{host, ThatHost.CPUS, int(ThatHost.MEMORY), int(ThatHost.DISK)}
+	return h, nil
 }
 
-func GetHostPods(host, port) ([]InfoPods, error) {
-	url := fmt.Sprintf("http:%s:%s/pod_list", host, port)
+func GetHostPods(host, port string) ([]InfoPods, error) {
+	url := fmt.Sprintf("http://%s:%s/pod_list", host, port)
 	body, err := http.Get(url)
 	if err != nil {
 		fmt.Println("get error")
@@ -762,10 +761,36 @@ func GetHostPods(host, port) ([]InfoPods, error) {
 	json.NewDecoder(body.Body).Decode(&ThatPods)
 	var ThatHostPods []InfoPods
 	for _, pod := range ThatPods {
-		TempPod := InfoPods{pod.name, pod.image, pod.count, pod.cpus, pod.memory, pod.disk}
+		TempPod := InfoPods{pod.name, pod.image, pod.count, pod.cpus, int(pod.memory), int(pod.disk)}
 		ThatHostPods = append(ThatHostPods, TempPod)
 	}
 	return ThatHostPods, nil
+}
+
+func GetHostContainers(host, port string) ([]InfoContainers, error) {
+	url := fmt.Sprintf("http://%s:%s/container_list", host, port)
+	body, err := http.Get(url)
+	if err != nil {
+		fmt.Println("get error")
+		fmt.Println(body)
+		return []InfoContainers{}, err
+	}
+	BodyBytes, err2 := ioutil.ReadAll(body.Body)
+	if err2 != nil {
+		fmt.Println("GetHostContainers error")
+		fmt.Println(err2)
+		return []InfoContainers{}, err2
+	}
+	ThatHostContainersSplit := strings.Split(string(BodyBytes), "\n")
+	var HostContainers []InfoContainers
+	for _, ContainerString := range ThatHostContainersSplit {
+		ContainerStringSplit := strings.Split(ContainerString, " ")
+		ID := ContainerStringSplit[0]
+		IMAGE := ContainerStringSplit[1]
+		x := InfoContainers{ID, IMAGE, host}
+		HostContainers = append(HostContainers, x)
+	}
+	return HostContainers, nil
 }
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
@@ -889,6 +914,18 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 			info.Pods = append(info.Pods, Pod)
 		}
 	}
+	for host, port := range hosts {
+		HostContainers, err := GetHostContainers(host, port)
+		if err != nil {
+			fmt.Println("GetHostContainers error")
+			fmt.Println("host: " + host)
+			fmt.Println(err)
+			continue
+		}
+		for _, Container := range HostContainers {
+			info.Containers = append(info.Containers, Container)
+		}
+	}
 	t, err2 := template.New("index").Parse(tpl)
 	if err2 != nil {
 		fmt.Println("index html rendering error")
@@ -896,7 +933,11 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err2.Error()))
 	}
-	err = t.Execute(w, info)
+	err := t.Execute(w, info)
+	if err != nil {
+		fmt.Println("template error")
+		fmt.Println(err)
+	}
 	return
 }
 
