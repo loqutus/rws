@@ -225,7 +225,7 @@ func StorageListAll() (string, error) {
 		body, err := http.Get(url)
 		if err != nil {
 			fmt.Println("get error")
-			fmt.Println(body.Body)
+			fmt.Println(err)
 			continue
 		}
 		if body.StatusCode != 200 {
@@ -244,7 +244,7 @@ func StorageListAll() (string, error) {
 			for _, FileLocal := range l {
 				if FileLocal == FileRemote {
 					found = true
-					continue
+					break
 				}
 			}
 			if found == false {
@@ -297,7 +297,7 @@ func StorageListHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("storage list error")
 		fmt.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("error"))
+		w.Write([]byte(err.Error()))
 		return
 	}
 	_, err2 := w.Write([]byte(s))
@@ -305,7 +305,7 @@ func StorageListHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("request write error")
 		fmt.Println(err2)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("error"))
+		w.Write([]byte(err2.Error()))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -313,6 +313,7 @@ func StorageListHandler(w http.ResponseWriter, r *http.Request) {
 
 func StorageFileSizeHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("storage size")
+	fmt.Println(r.URL.Path)
 	PathSplit := strings.Split(r.URL.Path, "/")
 	FileName := PathSplit[len(PathSplit)-1]
 	fmt.Println("filename: " + FileName)
@@ -874,8 +875,22 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 </html>
 `
 	var info Info
-	FilesSplit, _ := StorageListAll()
+	//var IsStorageListEmpty, IsPodsListEmpty, IsContainersListEmpty bool
+	if len(hosts) == 0{
+		fmt.Println("host list is empty")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("host list is empty"))
+		return
+	}
+	FilesSplit, err := StorageListAll()
+	if err != nil{
+		fmt.Println("StorageListAll error")
+		fmt.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+	}
 	FilesSplitSplit := strings.Split(FilesSplit, "\n")
+	fmt.Println(FilesSplitSplit)
 	for _, FileAndHost := range FilesSplitSplit {
 		PathSplit := strings.Split(FileAndHost, " ")
 		FileName := PathSplit[0]
@@ -933,10 +948,10 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err2.Error()))
 	}
-	err := t.Execute(w, info)
-	if err != nil {
+	err3 := t.Execute(w, info)
+	if err3 != nil {
 		fmt.Println("template error")
-		fmt.Println(err)
+		fmt.Println(err3)
 	}
 	return
 }
@@ -1201,6 +1216,7 @@ func scheduler() {
 
 func main() {
 	fmt.Println("starting server")
+	hosts = make(map[string]string)
 	go scheduler()
 	http.HandleFunc("/storage_upload/", StorageUploadHandler)
 	http.HandleFunc("/storage_download/", StorageDownloadHandler)
