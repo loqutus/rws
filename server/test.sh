@@ -15,6 +15,7 @@ cd ../client
 go build
 for i in $(seq 1 5); do
   ./client --action host_add --name pi$i --port 8888
+  ./client --action storage_upload --name $i.txt --hostname "http://pi$i:8888"
   sleep 1
 done
 curl http://127.0.0.1:8888/
