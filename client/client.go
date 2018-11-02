@@ -9,8 +9,9 @@ import (
 	"net/http"
 )
 
-const hostname = "http://localhost:8888"
 const actions = "storage_upload, storage_download, storage_remove, storage_list, storage_list_all, container_run, container_stop, container_list, container_list_all, container_remove, host_add, host_remove, host_list, host_info, pod_add, pod_stop, pod_list, pod_remove"
+
+var HostName string
 
 type Container struct {
 	Image string
@@ -23,7 +24,7 @@ func storageUpload(name string) error {
 		fmt.Println(err1)
 		panic("file read error")
 	}
-	url := fmt.Sprintf("%s/storage_upload/%s", hostname, name)
+	url := fmt.Sprintf("%s/storage_upload/%s", HostName, name)
 	body := bytes.NewBuffer(dat)
 	dat2, err2 := http.Post(url, "application/octet-stream", body)
 	if err2 != nil {
@@ -40,7 +41,7 @@ func storageUpload(name string) error {
 }
 
 func storageDownload(name string) error {
-	url := fmt.Sprintf("%s/storage_download/%s", hostname, name)
+	url := fmt.Sprintf("%s/storage_download/%s", HostName, name)
 	dat, err1 := http.Get(url)
 	if err1 != nil {
 		fmt.Println(err1)
@@ -64,7 +65,7 @@ func storageDownload(name string) error {
 }
 
 func storageRemove(name string) error {
-	url := fmt.Sprintf("%s/storage_remove/%s", hostname, name)
+	url := fmt.Sprintf("%s/storage_remove/%s", HostName, name)
 	dat, err1 := http.Get(url)
 	if err1 != nil {
 		fmt.Println(err1)
@@ -84,7 +85,7 @@ func storageRemove(name string) error {
 }
 
 func storageList() error {
-	url := fmt.Sprintf("%s/storage_list", hostname)
+	url := fmt.Sprintf("%s/storage_list", HostName)
 	dat, err1 := http.Get(url)
 	if err1 != nil {
 		panic("get error")
@@ -107,7 +108,7 @@ func storageHelp() {
 }
 
 func storageListAll() error {
-	url := fmt.Sprintf("%s/storage_list_all", hostname)
+	url := fmt.Sprintf("%s/storage_list_all", HostName)
 	dat, err1 := http.Get(url)
 	if err1 != nil {
 		panic("get error")
@@ -121,7 +122,6 @@ func storageListAll() error {
 		fmt.Println(err2)
 		panic("body read error")
 	}
-	fmt.Println(string(bodyBytes))
 	return nil
 }
 
@@ -170,7 +170,7 @@ func storage(action, name string) {
 // get mysql stop id
 func req(action string, bodyBuffer *bytes.Buffer) ([]byte, error) {
 	// http://localhost:8888/container_add
-	url := fmt.Sprintf("%s/%s", hostname, action)
+	url := fmt.Sprintf("%s/%s", HostName, action)
 	resp, err1 := http.Post(url, "application/json", bodyBuffer)
 	defer resp.Body.Close()
 	if err1 != nil {
@@ -275,6 +275,7 @@ func main() {
 	flag.StringVar(&name, "name", "", "container/file/host name")
 	flag.StringVar(&port, "port", "", "host port")
 	flag.StringVar(&podConfig, "pod_config", "", "pod config")
+	flag.StringVar(&HostName, "hostname", "http://localhost:8888", "hostname to connect to")
 	flag.Parse()
 	switch action {
 	case "storage_upload", "storage_download", "storage_remove", "storage_list", "storage_list_all":

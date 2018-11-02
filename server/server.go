@@ -211,15 +211,7 @@ func StorageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func StorageListAll() (string, error) {
-	hostname, _ := os.Hostname()
-	files, err := ioutil.ReadDir(DataDir)
-	if err != nil {
-		return "", err
-	}
 	var l []string
-	for _, f := range files {
-		l = append(l, f.Name()+" "+hostname)
-	}
 	for host, port := range hosts {
 		url := fmt.Sprintf("http://%s:%s/storage_list", host, port)
 		body, err := http.Get(url)
@@ -256,7 +248,7 @@ func StorageListAll() (string, error) {
 	return s, nil
 }
 
-func StorageListAllHandler(w http.ResponseWriter, r *http.Request) {
+func StorageListAllHandler(w http.ResponseWriter, _ *http.Request) {
 	fmt.Println("storage all list")
 	s, err := StorageListAll()
 	if err != nil {
@@ -290,7 +282,7 @@ func StorageList() (string, error) {
 	return s, nil
 }
 
-func StorageListHandler(w http.ResponseWriter, r *http.Request) {
+func StorageListHandler(w http.ResponseWriter, _ *http.Request) {
 	fmt.Println("storage list")
 	s, err := StorageList()
 	if err != nil {
@@ -391,13 +383,13 @@ func ListAllContainers() string {
 	return s
 }
 
-func ContainerListHandler(w http.ResponseWriter, r *http.Request) {
+func ContainerListHandler(w http.ResponseWriter, _ *http.Request) {
 	s := ListContainers()
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(s))
 }
 
-func ContainerListAllHandler(w http.ResponseWriter, r *http.Request) {
+func ContainerListAllHandler(w http.ResponseWriter, _ *http.Request) {
 	s := ListAllContainers()
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(s))
@@ -632,7 +624,7 @@ func ListHosts() (string, error) {
 	}
 }
 
-func HostListHandler(w http.ResponseWriter, r *http.Request) {
+func HostListHandler(w http.ResponseWriter, _ *http.Request) {
 	s, err := ListHosts()
 	if err == nil {
 		w.WriteHeader(http.StatusOK)
@@ -667,7 +659,7 @@ func HostInfo() (string, error) {
 	return string(b), err
 }
 
-func HostInfoHandler(w http.ResponseWriter, r *http.Request) {
+func HostInfoHandler(w http.ResponseWriter, _ *http.Request) {
 	s, err := HostInfo()
 	if err == nil {
 		w.WriteHeader(http.StatusOK)
@@ -732,6 +724,7 @@ func GetFileSize(filename, host, port string) (int, error) {
 		fmt.Println("response read error")
 		return 0, err2
 	}
+	fmt.Println(b)
 	data := binary.BigEndian.Uint64(b)
 	return int(data), nil
 }
@@ -794,7 +787,7 @@ func GetHostContainers(host, port string) ([]InfoContainers, error) {
 	return HostContainers, nil
 }
 
-func IndexHandler(w http.ResponseWriter, r *http.Request) {
+func IndexHandler(w http.ResponseWriter, _ *http.Request) {
 	fmt.Println("IndexHandler")
 	const tpl = `
 <!DOCTYPE html>
@@ -876,21 +869,20 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 `
 	var info Info
 	//var IsStorageListEmpty, IsPodsListEmpty, IsContainersListEmpty bool
-	if len(hosts) == 0{
+	if len(hosts) == 0 {
 		fmt.Println("host list is empty")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("host list is empty"))
 		return
 	}
 	FilesSplit, err := StorageListAll()
-	if err != nil{
+	if err != nil {
 		fmt.Println("StorageListAll error")
 		fmt.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 	}
 	FilesSplitSplit := strings.Split(FilesSplit, "\n")
-	fmt.Println(FilesSplitSplit)
 	for _, FileAndHost := range FilesSplitSplit {
 		PathSplit := strings.Split(FileAndHost, " ")
 		FileName := PathSplit[0]
@@ -991,7 +983,7 @@ func PodRunHandler(w http.ResponseWriter, r *http.Request) {
 			var ThatHost HostConfig
 			json.NewDecoder(body.Body).Decode(&ThatHost)
 			if ThatHost.DISK >= p.disk && ThatHost.CPUS >= p.cpus && ThatHost.MEMORY >= p.memory {
-				url := fmt.Sprintf("http://%s:%s/container_run")
+				url := fmt.Sprintf("http://%s:%s/container_run", host, port)
 				c := Container{p.image, p.name + "-" + string(i)}
 				b := new(bytes.Buffer)
 				json.NewEncoder(b).Encode(c)
