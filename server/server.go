@@ -641,7 +641,7 @@ func HostListHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 type HostConfig struct {
-	CPUS   int
+	CPUS   uint64
 	MEMORY uint64
 	DISK   uint64
 }
@@ -659,7 +659,7 @@ func HostInfo() (string, error) {
 	if err3 != nil {
 		return "", err3
 	}
-	c := HostConfig{len(ci), mi.Available, di.Free}
+	c := HostConfig{uint64(len(ci)), mi.Available, di.Free}
 	b, err := json.Marshal(c)
 	return string(b), err
 }
@@ -677,24 +677,24 @@ func HostInfoHandler(w http.ResponseWriter, _ *http.Request) {
 
 type InfoStorage struct {
 	Name string
-	Size int
+	Size uint64
 	Host string
 }
 
 type InfoHosts struct {
 	Name   string
-	CPUS   int
-	MEMORY int
-	DISK   int
+	CPUS   uint64
+	MEMORY uint64
+	DISK   uint64
 }
 
 type InfoPods struct {
 	Name   string
 	Image  string
-	Count  int
-	Cpus   int
-	Memory int
-	Disk   int
+	Count  uint64
+	Cpus   uint64
+	Memory uint64
+	Disk   uint64
 }
 
 type InfoContainers struct {
@@ -710,7 +710,7 @@ type Info struct {
 	Containers []InfoContainers
 }
 
-func GetFileSize(filename, host, port string) (int, error) {
+func GetFileSize(filename, host, port string) (uint64, error) {
 	url := fmt.Sprintf("http://%s:%s/storage_file_size/%s", host, port, filename)
 	body, err := http.Get(url)
 	if err != nil {
@@ -735,7 +735,7 @@ func GetFileSize(filename, host, port string) (int, error) {
 		fmt.Println(err3)
 		return 0, err3
 	}
-	return i, nil
+	return uint64(i), nil
 }
 
 func GetHostInfo(host, port string) (InfoHosts, error) {
@@ -748,7 +748,7 @@ func GetHostInfo(host, port string) (InfoHosts, error) {
 	}
 	var ThatHost HostConfig
 	json.NewDecoder(body.Body).Decode(&ThatHost)
-	h := InfoHosts{host, ThatHost.CPUS, int(ThatHost.MEMORY), int(ThatHost.DISK)}
+	h := InfoHosts{host, ThatHost.CPUS, ThatHost.MEMORY, ThatHost.DISK}
 	return h, nil
 }
 
@@ -764,7 +764,7 @@ func GetHostPods(host, port string) ([]InfoPods, error) {
 	json.NewDecoder(body.Body).Decode(&ThatPods)
 	var ThatHostPods []InfoPods
 	for _, pod := range ThatPods {
-		TempPod := InfoPods{pod.name, pod.image, pod.count, pod.cpus, int(pod.memory), int(pod.disk)}
+		TempPod := InfoPods{pod.name, pod.image, pod.count, pod.cpus, uint64(pod.memory), uint64(pod.disk)}
 		ThatHostPods = append(ThatHostPods, TempPod)
 	}
 	return ThatHostPods, nil
@@ -964,10 +964,10 @@ func IndexHandler(w http.ResponseWriter, _ *http.Request) {
 type pod struct {
 	name    string
 	image   string
-	cpus    int
+	cpus    uint64
 	disk    uint64
 	memory  uint64
-	count   int
+	count   uint64
 	enabled bool
 	ids     []string
 }
@@ -983,7 +983,7 @@ func PodRunHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pods = append(pods, p)
-	i := 0
+	var i uint64
 	for host, port := range hosts {
 		if i < p.count {
 			url := fmt.Sprintf("http://%s:%s/host_info", host, port)
