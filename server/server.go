@@ -2,13 +2,14 @@ package main
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"strconv"
+
 	//"github.com/golang/lint/testdata"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
@@ -333,6 +334,10 @@ func ListContainers() string {
 	if err != nil {
 		fmt.Println("containerList error")
 		fmt.Println(err)
+		return ""
+	}
+	if len(containers) == 0 {
+		fmt.Println("there is no running containers on this host")
 		return ""
 	}
 	for _, c := range containers {
@@ -724,9 +729,13 @@ func GetFileSize(filename, host, port string) (int, error) {
 		fmt.Println("response read error")
 		return 0, err2
 	}
-	fmt.Println(b)
-	data := binary.BigEndian.Uint64(b)
-	return int(data), nil
+	i, err3 := strconv.Atoi(string(b))
+	if err != nil {
+		fmt.Println("atoi error")
+		fmt.Println(err3)
+		return 0, err3
+	}
+	return i, nil
 }
 
 func GetHostInfo(host, port string) (InfoHosts, error) {
@@ -774,6 +783,10 @@ func GetHostContainers(host, port string) ([]InfoContainers, error) {
 		fmt.Println("GetHostContainers error")
 		fmt.Println(err2)
 		return []InfoContainers{}, err2
+	}
+	if len(BodyBytes) == 0 {
+		fmt.Println("no containers running on host")
+		return []InfoContainers{}, errors.New("no containers running on host")
 	}
 	ThatHostContainersSplit := strings.Split(string(BodyBytes), "\n")
 	var HostContainers []InfoContainers
