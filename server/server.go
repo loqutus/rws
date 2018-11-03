@@ -57,7 +57,7 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 	di, err2 := disk.Usage("/")
 	if err2 != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Println("disk usage error")
+		fmt.Println("Disk usage error")
 		return
 	}
 	if di.Free > uint64(FileSize) {
@@ -206,7 +206,7 @@ func StorageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("status code error")
 			continue
 		}
-		fmt.Println("file " + FileName + " removed from host " + host)
+		fmt.Println("file " + FileName + " removed from Host " + host)
 	}
 	w.WriteHeader(http.StatusOK)
 }
@@ -305,7 +305,7 @@ func StorageListHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func StorageFileSizeHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("storage size")
+	fmt.Println("storage Size")
 	fmt.Println(r.URL.Path)
 	PathSplit := strings.Split(r.URL.Path, "/")
 	FileName := PathSplit[len(PathSplit)-1]
@@ -337,7 +337,7 @@ func ListContainers() string {
 		return ""
 	}
 	if len(containers) == 0 {
-		fmt.Println("there is no running containers on this host")
+		fmt.Println("there is no running containers on this Host")
 		return ""
 	}
 	for _, c := range containers {
@@ -412,7 +412,7 @@ func RunContainer(imageName, containerName string) (string, error) {
 	}
 	out, err2 := cli.ImagePull(ctx, imageName, types.ImagePullOptions{})
 	if err2 != nil {
-		fmt.Println("image pull error")
+		fmt.Println("Image pull error")
 		fmt.Println(out)
 		fmt.Println(err2)
 		return "", err2
@@ -557,9 +557,9 @@ func ContainerRemoveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func AddHost(hostName, port string) error {
-	fmt.Println("host add")
+	fmt.Println("Host add")
 	if _, ok := hosts[hostName]; ok {
-		return errors.New("host already exists")
+		return errors.New("Host already exists")
 	} else {
 		hosts[hostName] = port
 	}
@@ -589,11 +589,11 @@ func HostAddHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func RemoveHost(hostName string) error {
-	fmt.Println("remove host")
+	fmt.Println("remove Host")
 	if _, ok := hosts[hostName]; ok {
 		delete(hosts, hostName)
 	} else {
-		return errors.New("host not found")
+		return errors.New("Host not found")
 	}
 	return nil
 }
@@ -676,9 +676,9 @@ func HostInfoHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 type InfoStorage struct {
-	name string
-	size int
-	host string
+	Name string
+	Size int
+	Host string
 }
 
 type InfoHosts struct {
@@ -689,18 +689,18 @@ type InfoHosts struct {
 }
 
 type InfoPods struct {
-	name   string
-	image  string
-	count  int
-	cpus   int
-	memory int
-	disk   int
+	Name   string
+	Image  string
+	Count  int
+	Cpus   int
+	Memory int
+	Disk   int
 }
 
 type InfoContainers struct {
-	name  string
-	image string
-	host  string
+	Name  string
+	Image string
+	Host  string
 }
 
 type Info struct {
@@ -785,8 +785,8 @@ func GetHostContainers(host, port string) ([]InfoContainers, error) {
 		return []InfoContainers{}, err2
 	}
 	if len(BodyBytes) == 0 {
-		fmt.Println("no containers running on host")
-		return []InfoContainers{}, errors.New("no containers running on host")
+		fmt.Println("no containers running on Host")
+		return []InfoContainers{}, errors.New("no containers running on Host")
 	}
 	ThatHostContainersSplit := strings.Split(string(BodyBytes), "\n")
 	var HostContainers []InfoContainers
@@ -818,9 +818,9 @@ func IndexHandler(w http.ResponseWriter, _ *http.Request) {
 			</tr>
 			{{range .Storage}}
 			<tr>
-				<td>{{.name}}</td>
-				<td>{{.size}}</td>
-				<td>{{.host}}</td>
+				<td>{{.Name}}</td>
+				<td>{{.Size}}</td>
+				<td>{{.Host}}</td>
 			</tr>
 			{{end}}
 		</table>
@@ -853,12 +853,12 @@ func IndexHandler(w http.ResponseWriter, _ *http.Request) {
 			</tr>
 			{{range .Pods}}
 			<tr>
-				<td>{{.name}}</td>
-				<td>{{.image}}</td>
-				<td>{{.count}}</td>
-				<td>{{.cpus}}</td>
-				<td>{{.memory}}</td>
-				<td>{{.disk}}</td>
+				<td>{{.Name}}</td>
+				<td>{{.Image}}</td>
+				<td>{{.Count}}</td>
+				<td>{{.Cpus}}</td>
+				<td>{{.Memory}}</td>
+				<td>{{.Disk}}</td>
 			<tr>
 			{{end}}
 		</table>
@@ -871,9 +871,9 @@ func IndexHandler(w http.ResponseWriter, _ *http.Request) {
 			</tr>
 			{{range .Containers}}
 			<tr>
-				<td>{{.name}}</td>
-				<td>{{.image}}</td>
-				<td>{{.host}}</td>
+				<td>{{.Name}}</td>
+				<td>{{.Image}}</td>
+				<td>{{.Host}}</td>
 			<tr>
 			{{end}}
 		</table>
@@ -883,9 +883,9 @@ func IndexHandler(w http.ResponseWriter, _ *http.Request) {
 	var info Info
 	//var IsStorageListEmpty, IsPodsListEmpty, IsContainersListEmpty bool
 	if len(hosts) == 0 {
-		fmt.Println("host list is empty")
+		fmt.Println("Host list is empty")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("host list is empty"))
+		w.Write([]byte("Host list is empty"))
 		return
 	}
 	FilesSplit, err := StorageListAll()
@@ -915,7 +915,7 @@ func IndexHandler(w http.ResponseWriter, _ *http.Request) {
 		HostInfo, err := GetHostInfo(host, port)
 		if err != nil {
 			fmt.Println("GetHostInfo error")
-			fmt.Println("host: " + host)
+			fmt.Println("Host: " + host)
 			fmt.Println(err)
 			continue
 		}
@@ -926,7 +926,7 @@ func IndexHandler(w http.ResponseWriter, _ *http.Request) {
 		HostPods, err := GetHostPods(host, port)
 		if err != nil {
 			fmt.Println("GetHostPods error")
-			fmt.Println("host: " + host)
+			fmt.Println("Host: " + host)
 			fmt.Println(err)
 			continue
 		}
@@ -938,7 +938,7 @@ func IndexHandler(w http.ResponseWriter, _ *http.Request) {
 		HostContainers, err := GetHostContainers(host, port)
 		if err != nil {
 			fmt.Println("GetHostContainers error")
-			fmt.Println("host: " + host)
+			fmt.Println("Host: " + host)
 			fmt.Println(err)
 			continue
 		}

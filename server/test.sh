@@ -18,9 +18,9 @@ for i in $(seq 1 5); do
   ./client --action storage_upload --name $i.txt --hostname "http://pi$i:8888"
   sleep 1
 done
-curl http://127.0.0.1:8888/
-kill $(ps aux | grep 'server' | grep -v grep | grep -v mosh | awk '{ print $2 }')
-for ID in $(ps aux | grep "ssh -f" | grep  -v grep | awk '{ print $2 }'); do
-  kill $ID
-done
+#curl http://127.0.0.1:8888/
+#kill $(ps aux | grep 'server' | grep -v grep | grep -v mosh | awk '{ print $2 }')
+#for ID in $(ps aux | grep "ssh -f" | grep  -v grep | awk '{ print $2 }'); do
+#  kill $ID
+#done
 cd ../server/
