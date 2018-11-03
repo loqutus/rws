@@ -8,9 +8,6 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
-	"strconv"
-
-	//"github.com/golang/lint/testdata"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
@@ -19,6 +16,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -559,7 +557,7 @@ func ContainerRemoveHandler(w http.ResponseWriter, r *http.Request) {
 func AddHost(hostName, port string) error {
 	fmt.Println("Host add")
 	if _, ok := hosts[hostName]; ok {
-		return errors.New("Host already exists")
+		return errors.New("host already exists")
 	} else {
 		hosts[hostName] = port
 	}
@@ -593,7 +591,7 @@ func RemoveHost(hostName string) error {
 	if _, ok := hosts[hostName]; ok {
 		delete(hosts, hostName)
 	} else {
-		return errors.New("Host not found")
+		return errors.New("host not found")
 	}
 	return nil
 }
@@ -618,7 +616,7 @@ func HostRemoveHandler(w http.ResponseWriter, r *http.Request) {
 func ListHosts() (string, error) {
 	fmt.Println("list hosts")
 	var l []string
-	for k, _ := range hosts {
+	for k := range hosts {
 		l = append(l, k)
 	}
 	if len(l) > 0 {
@@ -1089,7 +1087,7 @@ func PodStopHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func PodListHandler(w http.ResponseWriter, r *http.Request) {
+func PodListHandler(w http.ResponseWriter, _ *http.Request) {
 	fmt.Println("pod list")
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(pods)
@@ -1132,7 +1130,7 @@ func scheduler() {
 			continue
 		}
 		for index, p := range pods {
-			fmt.Println("Pod %s should have %s containers", p.name, len(p.ids))
+			fmt.Println("Pod " + p.name + " should have " + string(len(p.ids)) + " containers")
 			var FoundIDs []string
 			for host, port := range hosts {
 				url := fmt.Sprintf("http://%s:%s/containers_list", host, port)
@@ -1163,7 +1161,7 @@ func scheduler() {
 					}
 				}
 			}
-			fmt.Println("Pod %s have %s running containers", p.name, len(FoundIDs))
+			fmt.Println("Pod " + p.name + " have " + string(len(FoundIDs)) + " running containers")
 			if len(FoundIDs) < len(p.ids) {
 				for IDNum, ID := range p.ids {
 					found := false
@@ -1205,7 +1203,7 @@ func scheduler() {
 							fmt.Println(err2)
 							panic("response read error")
 						}
-						fmt.Println("run new container for pod %s", p.name)
+						fmt.Println("run new container for pod " + p.name)
 						pods[index].ids = append(pods[index].ids, string(b2))
 						i += 1
 					}
