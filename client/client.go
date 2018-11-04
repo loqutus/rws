@@ -117,7 +117,7 @@ func storageListAll() error {
 		fmt.Println(dat.StatusCode)
 		panic("status code error")
 	}
-	bodyBytes, err2 := ioutil.ReadAll(dat.Body)
+	_, err2 := ioutil.ReadAll(dat.Body)
 	if err2 != nil {
 		fmt.Println(err2)
 		panic("body read error")
@@ -242,20 +242,24 @@ func hosts(action, hostName, hostPort string) string {
 type pod struct {
 	name    string
 	image   string
-	cpus    int
+	cpus    uint64
 	disk    uint64
 	memory  uint64
-	count   int
+	count   uint64
 	enabled bool
 	ids     []string
 }
 
-func pods(action, podConfig string) string {
-	b := new(bytes.Buffer)
-	b.Write([]byte(podConfig))
+func pods(action string, Pod pod) string {
+	b, err := json.Marshal(Pod)
+	if err != nil {
+		fmt.Println("json marshal error")
+		panic(err)
+	}
+	buf := bytes.NewBuffer(b)
 	switch action {
 	case "pod_add", "pod_remove", "pod_list", "pod_info":
-		resp, err := req(action, b)
+		resp, err := req(action, buf)
 		if err != nil {
 			fmt.Println(err)
 			panic("get error")
@@ -269,12 +273,16 @@ func pods(action, podConfig string) string {
 func main() {
 	// client --type storage --action upload --name file
 	// client --type storage --action list
-	var action, name, image, port, podConfig string
+	var action, name, image, port string
+	var cpus, disk, memory, count uint64
 	flag.StringVar(&action, "action", "", actions)
 	flag.StringVar(&image, "image", "", "redis or mysql")
 	flag.StringVar(&name, "name", "", "container/file/host name")
 	flag.StringVar(&port, "port", "", "host port")
-	flag.StringVar(&podConfig, "pod_config", "", "pod config")
+	flag.Uint64Var(&cpus, "cpus", 1, "cpus for each container in pod")
+	flag.Uint64Var(&disk, "disk", 1, "disk for each container in pod")
+	flag.Uint64Var(&memory, "memory", 1, "memory for each container in pod")
+	flag.Uint64Var(&count, "count", 1, "containers cound in pod")
 	flag.StringVar(&HostName, "hostname", "http://localhost:8888", "hostname to connect to")
 	flag.Parse()
 	switch action {
@@ -286,13 +294,16 @@ func main() {
 		} else {
 			panic("file name required")
 		}
-	case "container_run", "container_stop", "container_list, container_list_all container_remove":
+	case "container_run", "container_stop", "container_list", "container_list_all", "container_remove":
 		_ = container(action, image, name)
 	case "host_add", "host_remove", "host_list", "host_info":
 		_ = hosts(action, name, port)
 	case "pod_add", "pod_stop", "pod_remove", "pod_list":
-		_ = pods(action, podConfig)
+		var s []string
+		var Pod = pod{name, image, cpus, disk, memory, count, true, s}
+		_ = pods(action, Pod)
 	default:
+		fmt.Println("unknown action " + action)
 		panic(actions)
 	}
 }
