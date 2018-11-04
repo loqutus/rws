@@ -1,1 +1,3 @@
-FROM arm32v7/golang:onbuild
+FROM arm32v6/alpine
+COPY ./server /server
+CMD ["/server"]

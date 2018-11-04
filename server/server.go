@@ -972,56 +972,59 @@ type pod struct {
 
 var pods []pod
 
-func PodRunHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("pod run")
+func PodAddHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("pod add")
 	var p pod
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
+		fmt.Println("json decoding error")
+		fmt.Println(err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	pods = append(pods, p)
 	var i uint64
 	for host, port := range hosts {
-		if i < p.count {
-			url := fmt.Sprintf("http://%s:%s/host_info", host, port)
-			body, err := http.Get(url)
-			if err != nil {
-				fmt.Println("get error")
-				fmt.Println(body)
+		if i >= p.count {
+			break
+		}
+		url := fmt.Sprintf("http://%s:%s/host_info", host, port)
+		body, err := http.Get(url)
+		if err != nil {
+			fmt.Println("get error")
+			fmt.Println(body)
+			continue
+		}
+		var ThatHost HostConfig
+		json.NewDecoder(body.Body).Decode(&ThatHost)
+		if ThatHost.DISK >= p.disk &&
+			ThatHost.CPUS >= p.cpus &&
+			ThatHost.MEMORY >= p.memory {
+			url := fmt.Sprintf("http://%s:%s/container_run", host, port)
+			c := Container{p.image, p.name + "-" + string(i)}
+			b := new(bytes.Buffer)
+			json.NewEncoder(b).Encode(c)
+			resp, err1 := http.Post(url, "application/json", b)
+			if err1 != nil {
+				fmt.Println(err1)
+				fmt.Println("request error")
 				continue
 			}
-			var ThatHost HostConfig
-			json.NewDecoder(body.Body).Decode(&ThatHost)
-			if ThatHost.DISK >= p.disk && ThatHost.CPUS >= p.cpus && ThatHost.MEMORY >= p.memory {
-				url := fmt.Sprintf("http://%s:%s/container_run", host, port)
-				c := Container{p.image, p.name + "-" + string(i)}
-				b := new(bytes.Buffer)
-				json.NewEncoder(b).Encode(c)
-				resp, err1 := http.Post(url, "application/json", b)
-				if err1 != nil {
-					fmt.Println(err1)
-					fmt.Println("request error")
-					continue
-				}
-				if resp.StatusCode != 200 {
-					fmt.Println("request status code error")
-					fmt.Println(resp.StatusCode)
-					fmt.Println(resp)
-					continue
-				}
-				body, err2 := ioutil.ReadAll(resp.Body)
-				if err2 != nil {
-					fmt.Println("response read error")
-					fmt.Println(err2)
-					continue
-				}
-				p.ids = append(p.ids, string(body))
-				fmt.Println(body)
-				i += 1
+			if resp.StatusCode != 200 {
+				fmt.Println("request status code error")
+				fmt.Println(resp.StatusCode)
+				fmt.Println(resp)
+				continue
 			}
-		} else {
-			break
+			body, err2 := ioutil.ReadAll(resp.Body)
+			if err2 != nil {
+				fmt.Println("response read error")
+				fmt.Println(err2)
+				continue
+			}
+			p.ids = append(p.ids, string(body))
+			fmt.Println(body)
+			i += 1
 		}
 	}
 	fmt.Println("all pod containers running")
@@ -1232,7 +1235,7 @@ func main() {
 	http.HandleFunc("/container_list", ContainerListHandler)
 	http.HandleFunc("/container_list_all", ContainerListAllHandler)
 	http.HandleFunc("/container_remove", ContainerRemoveHandler)
-	http.HandleFunc("/pod_run", PodRunHandler)
+	http.HandleFunc("/pod_add", PodAddHandler)
 	http.HandleFunc("/pod_stop", PodStopHandler)
 	http.HandleFunc("/pod_list", PodListHandler)
 	http.HandleFunc("/pod_remove", PodRemoveHandler)

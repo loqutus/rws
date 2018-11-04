@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
 set -x
-kill $(ps aux | grep 'server' | grep -v grep | grep -v mosh | awk '{ print $2 }')
-for ID in $(ps aux | grep "ssh -f" | grep  -v grep | awk '{ print $2 }'); do
-  kill $ID
-done
-go build
+CGO_ENABLED=0 go build .
+docker build . -t rws
+docker tag rws loqutus/rws
+docker push loqutus/rws
 for i in $(seq 2 5); do
-  ssh pi$i pkill server
-  rsync server pi$i:~/
-  ssh -f pi$i ~/server
+    ssh pi$i docker pull loqutus/rws
+    docker run -d loqutus/rws -n rws
 done
-./server 2>&1 &
+docker run -d loqutus/rws
 cd ../client
 go build
 for i in $(seq 1 5); do
@@ -20,11 +18,10 @@ for i in $(seq 1 5); do
 done
 ./client --action container_stop --name test
 ./client --action container_remove --name test
-./client --action container_run --name test --image "arm32v7/busybox"
-./client --action pod_add --name test --image "arm32v7/busybox"
-#curl http://127.0.0.1:8888/
-#kill $(ps aux | grep 'server' | grep -v grep | grep -v mosh | awk '{ print $2 }')
-#for ID in $(ps aux | grep "ssh -f" | grep  -v grep | awk '{ print $2 }'); do
-#  kill $ID
-#done
+./client --action container_run --name test --image "arm32v6/alpine"
+./client --action pod_add --name test --image "arm32v6/alpine"
+./client --action pod_list
+for i in $(seq 1 5); do
+    docker stop -n rws
+done
 cd ../server/
