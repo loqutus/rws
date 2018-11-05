@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -x
+set -e
 CGO_ENABLED=0 go build .
 docker build . -t rws
 docker tag rws loqutus/rws
 docker push loqutus/rws
+docker-compose up -d
 for i in $(seq 2 5); do
-    ssh pi$i docker pull loqutus/rws
-    docker run -d loqutus/rws -n rws
+    ssh pi$i docker-compose up -d
 done
-docker run -d loqutus/rws
 cd ../client
 go build
 for i in $(seq 1 5); do
