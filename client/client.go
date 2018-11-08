@@ -30,12 +30,11 @@ func storageUpload(name string) error {
 	if err2 != nil {
 		fmt.Println(err2)
 		panic("upload error")
-		return err2
 	}
 	if dat2.StatusCode != 200 {
 		fmt.Println(dat2.StatusCode)
+		fmt.Println(err2)
 		panic("status code error")
-		return http.ErrServerClosed
 	}
 	return nil
 }

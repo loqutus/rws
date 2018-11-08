@@ -5,8 +5,9 @@ CGO_ENABLED=0 go build .
 docker build . -t rws
 docker tag rws loqutus/rws
 docker push loqutus/rws
-docker-compose up -d
-for i in $(seq 2 5); do
+docker run loqutus/etcd
+for i in $(seq 1 5); do
+    ssh pi$i docker-compose down
     ssh pi$i docker-compose up -d
 done
 cd ../client
@@ -22,6 +23,6 @@ done
 ./client --action pod_add --name test --image "arm32v6/alpine"
 ./client --action pod_list
 for i in $(seq 1 5); do
-    docker stop -n rws
+    ssh pi$i docker-compose down
 done
 cd ../server/

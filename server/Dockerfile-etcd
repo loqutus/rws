@@ -1,0 +1,5 @@
+FROM arm32v7/ubuntu:18.04
+RUN apt update && apt install -y etcd
+CMD ["ETCD_UNSUPPORTED_ARCH=arm /usr/bin/etcd"]
+EXPOSE 2379
+EXPOSE 2380

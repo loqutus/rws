@@ -11,6 +11,7 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
+	etcdClient "go.etcd.io/etcd/client"
 	"golang.org/x/net/context"
 	"html/template"
 	"io/ioutil"
@@ -23,31 +24,142 @@ import (
 
 const addr = "0.0.0.0:8888"
 const DataDir = "data"
+const EtcdHost = "http://pi1:2379"
 
-var hosts map[string]string
+var EtcdClient etcdClient.Client
+
+type Host struct {
+	Name   string
+	Port   string
+	Disk   uint64
+	Memory uint64
+	CPUS   uint64
+}
+
+type Container struct {
+	Image  string
+	Name   string
+	Disk   uint64
+	Memory uint64
+	CPUS   uint64
+}
+
+type HostConfig struct {
+	CPUS   uint64
+	MEMORY uint64
+	DISK   uint64
+}
+
+type InfoStorage struct {
+	Name string
+	Size uint64
+	Host string
+}
+
+type InfoHosts struct {
+	Name   string
+	CPUS   uint64
+	MEMORY uint64
+	DISK   uint64
+}
+
+type InfoPods struct {
+	Name   string
+	Image  string
+	Count  uint64
+	Cpus   uint64
+	Memory uint64
+	Disk   uint64
+}
+
+type InfoContainers struct {
+	Name  string
+	Image string
+	Host  string
+}
+
+type Info struct {
+	Storage    []InfoStorage
+	Hosts      []InfoHosts
+	Pods       []InfoPods
+	Containers []InfoContainers
+}
+
+func EtcdCreateKey(name, value string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	kAPI := etcdClient.NewKeysAPI(EtcdClient)
+	_, err := kAPI.Create(ctx, name, value)
+	return err
+}
+
+func EtcdSetKey(name, value string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	kAPI := etcdClient.NewKeysAPI(EtcdClient)
+	_, err := kAPI.Set(ctx, name, value, nil)
+	return err
+}
+
+func EtcdDeleteKey(name string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	kAPI := etcdClient.NewKeysAPI(EtcdClient)
+	_, err := kAPI.Delete(ctx, name, nil)
+	return err
+}
+
+func EtcdGetKey(name string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	kAPI := etcdClient.NewKeysAPI(EtcdClient)
+	resp, err := kAPI.Get(ctx, name, nil)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Node.Value, nil
+}
+
+func EtcdListDir(name string) (etcdClient.Nodes, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	kAPI := etcdClient.NewKeysAPI(EtcdClient)
+	resp, err := kAPI.Get(ctx, name, nil)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Node.Nodes, nil
+}
 
 func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("storage upload")
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		fmt.Println("request reading error")
-		fmt.Println(err)
+		fmt.Println(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("request reading error"))
+		w.Write([]byte(err.Error()))
 		return
 	}
 	FileSize := len(body)
 	PathSplit := strings.Split(r.URL.Path, "/")
-	FileName := fmt.Sprintf("%s/%s", DataDir, PathSplit[len(PathSplit)-1])
+	FileName := DataDir + "/" + PathSplit[len(PathSplit)-1]
 	files, err3 := StorageList()
 	if err3 != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Println("storage list error")
+		fmt.Println(err3.Error())
+		w.Write([]byte("storage list error"))
+		w.Write([]byte(err3.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	FileSplit := strings.Split(files, "\n")
 	for _, file := range FileSplit {
 		if file == FileName {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("file already exists"))
 			fmt.Println("file already exists")
 			return
 		}
@@ -55,7 +167,10 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 	di, err2 := disk.Usage("/")
 	if err2 != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("disk usage error"))
+		w.Write([]byte(err2.Error()))
 		fmt.Println("Disk usage error")
+		fmt.Println(err2.Error())
 		return
 	}
 	if di.Free > uint64(FileSize) {
@@ -64,6 +179,7 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("file write error")
 			fmt.Println(err2)
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err2.Error()))
 			return
 		}
 		fmt.Println("file " + FileName + " uploaded")
@@ -105,6 +221,7 @@ func StorageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	if err3 != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Println("storage list error")
+		fmt.Println(err3)
 		return
 	}
 	FileSplit := strings.Split(files, "\n")
@@ -176,6 +293,7 @@ func StorageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Println("storage list error")
+		fmt.Println(err)
 		return
 	}
 	FileSplit := strings.Split(files, "\n")
@@ -503,11 +621,6 @@ func RemoveContainer(containerName string) error {
 	return nil
 }
 
-type Container struct {
-	Image string
-	Name  string
-}
-
 func ContainerRunHandler(w http.ResponseWriter, r *http.Request) {
 	var c Container
 	err := json.NewDecoder(r.Body).Decode(&c)
@@ -556,17 +669,38 @@ func ContainerRemoveHandler(w http.ResponseWriter, r *http.Request) {
 
 func AddHost(hostName, port string) error {
 	fmt.Println("Host add")
-	if _, ok := hosts[hostName]; ok {
-		return errors.New("host already exists")
+	dir, err := EtcdListDir("/rws/hosts")
+	if err != nil {
+		return err
+	}
+	found := false
+	for _, node := range dir {
+		if hostName == node.Key && node.Value == port {
+			found = true
+			break
+		}
+	}
+	HostInfo, err3 := GetHostInfo(host, port)
+	b, err4 := json.Marshal(HostInfo)
+	if err4 != nil {
+		fmt.Println("host info json marshal error")
+		b = []byte("")
+	}
+	HostInfoString := string(b)
+	if err3 != nil {
+		fmt.Println("host config get error")
+	}
+	if found == false {
+		err2 := EtcdCreateKey("/rws/hosts/"+hostName+":"+port, HostInfoString)
+		if err2 != nil {
+			return err2
+		}
+		fmt.Println("host " + hostName + ":" + port + " added")
 	} else {
-		hosts[hostName] = port
+		fmt.Println("host already exists")
+		return errors.New("host already exists")
 	}
 	return nil
-}
-
-type Host struct {
-	Name string
-	Port string
 }
 
 func HostAddHandler(w http.ResponseWriter, r *http.Request) {
@@ -588,10 +722,24 @@ func HostAddHandler(w http.ResponseWriter, r *http.Request) {
 
 func RemoveHost(hostName string) error {
 	fmt.Println("remove Host")
-	if _, ok := hosts[hostName]; ok {
-		delete(hosts, hostName)
-	} else {
+	dir, err := EtcdListDir("/rws/hosts")
+	if err != nil {
+		return err
+	}
+	found := false
+	for _, node := range dir {
+		if hostName == node.Key && node.Value == port {
+			found = true
+			break
+		}
+	}
+	if found == false {
 		return errors.New("host not found")
+	} else {
+		err2 := EtcdDeleteKey("/rws/hosts/" + hostName + ":" + port)
+		if err2 != nil {
+			return err2
+		}
 	}
 	return nil
 }
@@ -615,13 +763,22 @@ func HostRemoveHandler(w http.ResponseWriter, r *http.Request) {
 
 func ListHosts() (string, error) {
 	fmt.Println("list hosts")
-	var l []string
-	for k := range hosts {
-		l = append(l, k)
+	hosts, err := EtcdListDir("/rws/hosts")
+	if err != nil {
+		fmt.Println("etcdlistdir error")
+		return "", err
+	}
+	var l []map[string]string
+	for _, k := range hosts {
+		h := map[string]string{k.Key: k.Value}
+		l = append(l, h)
 	}
 	if len(l) > 0 {
-		s := strings.Join(l, "\n")
-		return s, nil
+		sm, err2 := json.Marshal([]byte(l))
+		if err2 != nil {
+			return "", err2
+		}
+		return string(sm), nil
 	} else {
 		return "", errors.New("hosts list is empty")
 	}
@@ -636,12 +793,6 @@ func HostListHandler(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "error")
 	}
-}
-
-type HostConfig struct {
-	CPUS   uint64
-	MEMORY uint64
-	DISK   uint64
 }
 
 func HostInfo() (string, error) {
@@ -671,41 +822,6 @@ func HostInfoHandler(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "error")
 	}
-}
-
-type InfoStorage struct {
-	Name string
-	Size uint64
-	Host string
-}
-
-type InfoHosts struct {
-	Name   string
-	CPUS   uint64
-	MEMORY uint64
-	DISK   uint64
-}
-
-type InfoPods struct {
-	Name   string
-	Image  string
-	Count  uint64
-	Cpus   uint64
-	Memory uint64
-	Disk   uint64
-}
-
-type InfoContainers struct {
-	Name  string
-	Image string
-	Host  string
-}
-
-type Info struct {
-	Storage    []InfoStorage
-	Hosts      []InfoHosts
-	Pods       []InfoPods
-	Containers []InfoContainers
 }
 
 func GetFileSize(filename, host, port string) (uint64, error) {
@@ -1222,7 +1338,16 @@ func scheduler() {
 
 func main() {
 	fmt.Println("starting server")
-	hosts = make(map[string]string)
+	etcdCfg := etcdClient.Config{
+		Endpoints: []string{EtcdHost},
+		Transport: etcdClient.DefaultTransport,
+	}
+	var err error
+	EtcdClient, err = etcdClient.New(etcdCfg)
+	if err != nil {
+		fmt.Println(err)
+		panic("etcd client initialization error")
+	}
 	go scheduler()
 	http.HandleFunc("/storage_upload/", StorageUploadHandler)
 	http.HandleFunc("/storage_download/", StorageDownloadHandler)
