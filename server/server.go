@@ -32,7 +32,6 @@ var EtcdClient etcdClient.Client
 
 type Host struct {
 	Name   string
-	Port   string
 	Disk   uint64
 	Memory uint64
 	Cores  uint64
@@ -198,7 +197,7 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, host := range hostsList {
-			url := fmt.Sprintf("http://%s:%s/host_info", host.Name, host.Port)
+			url := "http://" + host.Name + "/host_info"
 			body, err5 := http.Get(url)
 			if err5 != nil {
 				fmt.Println("get error: " + url)
@@ -208,8 +207,8 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 			var ThatHost Host
 			json.NewDecoder(body.Body).Decode(&ThatHost)
 			if uint64(FileSize) < ThatHost.Disk {
-				fmt.Println("uploading to " + host.Name + ":" + host.Port)
-				url := fmt.Sprintf("%s:%s/storage_upload/%s", host.Name, host.Port, FilePathName)
+				fmt.Println("uploading to " + host.Name)
+				url := fmt.Sprintf("%s/storage_upload/%s", host.Name, FilePathName)
 				dat, err6 := http.Post(url, "application/octet-stream", r.Body)
 				if err6 != nil {
 					fmt.Println("post error: " + url)
@@ -393,32 +392,51 @@ func StorageFileSizeHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func ListLocalContainers() string {
+func ListLocalContainers() (string, error) {
 	fmt.Println("list containers")
 	c := client.WithVersion("1.38")
 	cli, err := client.NewClientWithOpts(c)
 	if err != nil {
 		fmt.Println("client create error")
 		fmt.Println(err)
-		return ""
+		return "client create error", err
 	}
-	containers, err2 := cli.ContainerList(context.Background(), types.ContainerListOptions{})
+	localContainers, err2 := cli.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err2 != nil {
 		fmt.Println("containerList error")
 		fmt.Println(err2)
-		return ""
+		return "containerList error", err2
 	}
-	if len(containers) == 0 {
+	if len(localContainers) == 0 {
 		fmt.Println("there is no running containers on this Host")
-		return ""
+		return "{}", nil
 	}
-	b, err3 := json.Marshal(containers)
+	var allContainers []Container
+	allContainersString, err3 := ListAllContainers()
+	if err3 != nil {
+		fmt.Println("ListAllContainers error")
+		return "", err3
+	}
+	err4 := json.Unmarshal([]byte(allContainersString), &allContainers)
+	if err4 != nil {
+		fmt.Println("json unmarshal error")
+		return "", err4
+	}
+	var returnContainers []Container
+	for _, localContainer := range localContainers {
+		for _, allContainer := range allContainers {
+			if localContainer.ID == allContainer.ID {
+				returnContainers = append(returnContainers, allContainer)
+			}
+		}
+	}
+	b, err3 := json.Marshal(returnContainers)
 	if err3 != nil {
 		fmt.Println("json marshal error")
 		fmt.Println(err3)
-		return ""
+		return "json marshal error", err3
 	}
-	return string(b)
+	return string(b), nil
 }
 
 func ListAllContainers() (string, error) {
@@ -444,15 +462,18 @@ func ListAllContainers() (string, error) {
 }
 
 func ContainerListHandler(w http.ResponseWriter, _ *http.Request) {
-	s := ListLocalContainers()
+	s, err := ListAllContainers()
+	if err != nil {
+		Fail(s, err, w)
+	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(s))
 }
 
-func ContainerListAllHandler(w http.ResponseWriter, _ *http.Request) {
-	s, err := ListAllContainers()
+func ContainerListLocalHandler(w http.ResponseWriter, _ *http.Request) {
+	s, err := ListLocalContainers()
 	if err != nil {
-		Fail("ListAllContainers error", err, w)
+		Fail(s, err, w)
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(s))
@@ -630,7 +651,7 @@ func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		url := "http://" + c.Host + "/container_stop/" + c.Name
 		body, err3 := http.Get(url)
-		if err3 != nil {
+		if err3 == nil {
 			if body.StatusCode != 200 {
 				Fail("http.Get status code error: "+string(body.StatusCode), err3, w)
 				return
@@ -639,6 +660,7 @@ func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 			Fail("http.Get error", err3, w)
 			return
 		}
+
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
@@ -692,7 +714,7 @@ func ContainerRemoveHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func AddHost(hostName, port string) error {
+func AddHost(hostName string) error {
 	fmt.Println("Host add")
 	dir, err := EtcdListDir("/rws/hosts")
 	if err != nil {
@@ -700,7 +722,7 @@ func AddHost(hostName, port string) error {
 	}
 	found := false
 	for _, node := range dir {
-		if hostName == node.Key && node.Value == port {
+		if hostName == node.Key {
 			found = true
 			break
 		}
@@ -708,7 +730,7 @@ func AddHost(hostName, port string) error {
 	if found == true {
 		return errors.New("host already exists")
 	}
-	HostInfo, err3 := GetHostInfo(hostName, port)
+	HostInfo, err3 := GetHostInfo(hostName)
 	if err3 != nil {
 		fmt.Println("host info get error")
 		return err3
@@ -720,11 +742,11 @@ func AddHost(hostName, port string) error {
 	}
 	HostInfoString := string(b)
 	if found == false {
-		err2 := EtcdCreateKey("/rws/hosts/"+hostName+":"+port, HostInfoString)
+		err2 := EtcdCreateKey("/rws/hosts/"+hostName, HostInfoString)
 		if err2 != nil {
 			return err2
 		}
-		fmt.Println("host " + hostName + ":" + port + " added")
+		fmt.Println("host " + hostName + " added")
 	} else {
 		fmt.Println("host already exists")
 		return errors.New("host already exists")
@@ -741,7 +763,7 @@ func HostAddHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	err2 := AddHost(h.Name, h.Port)
+	err2 := AddHost(h.Name)
 	if err2 == nil {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
@@ -750,7 +772,7 @@ func HostAddHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func RemoveHost(hostName, port string) error {
+func RemoveHost(hostName string) error {
 	fmt.Println("remove Host")
 	dir, err := EtcdListDir("/rws/hosts")
 	if err != nil {
@@ -758,7 +780,7 @@ func RemoveHost(hostName, port string) error {
 	}
 	found := false
 	for _, node := range dir {
-		if hostName == node.Key && node.Value == port {
+		if hostName == node.Key {
 			found = true
 			break
 		}
@@ -766,7 +788,7 @@ func RemoveHost(hostName, port string) error {
 	if found == false {
 		return errors.New("host not found")
 	} else {
-		err2 := EtcdDeleteKey("/rws/hosts/" + hostName + ":" + port)
+		err2 := EtcdDeleteKey("/rws/hosts/" + hostName)
 		if err2 != nil {
 			return err2
 		}
@@ -784,7 +806,7 @@ func HostRemoveHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err.Error())
 		return
 	}
-	err2 := RemoveHost(h.Name, h.Port)
+	err2 := RemoveHost(h.Name)
 	if err2 == nil {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
@@ -845,9 +867,7 @@ func HostInfo() (string, error) {
 	if err4 != nil {
 		name = "localhost"
 	}
-	portSplit := strings.Split(addr, ":")
-	port := portSplit[len(portSplit)-1]
-	c := Host{name, port, di.Free, mi.Available, uint64(len(ci))}
+	var c = Host{name, di.Free, mi.Available, uint64(len(ci))}
 	b, err := json.Marshal(c)
 	return string(b), err
 }
@@ -891,8 +911,8 @@ func GetFileSize(filename, host, port string) (uint64, error) {
 	return uint64(i), nil
 }
 
-func GetHostInfo(host, port string) (Host, error) {
-	url := fmt.Sprintf("http://%s:%s/host_info", host, port)
+func GetHostInfo(host string) (Host, error) {
+	url := "http://" + host + "/host_info"
 	body, err := http.Get(url)
 	if err != nil {
 		fmt.Println("get error")
@@ -904,8 +924,8 @@ func GetHostInfo(host, port string) (Host, error) {
 	return ThatHost, nil
 }
 
-func GetHostPods(host, port string) ([]Pod, error) {
-	url := fmt.Sprintf("http://%s:%s/pod_list", host, port)
+func GetHostPods(host string) ([]Pod, error) {
+	url := fmt.Sprintf("http://" + host + "/pod_list")
 	body, err := http.Get(url)
 	if err != nil {
 		fmt.Println("get error")
@@ -920,8 +940,8 @@ func GetHostPods(host, port string) ([]Pod, error) {
 	return ThatHostPods, nil
 }
 
-func GetHostContainers(host, port string) ([]Container, error) {
-	url := fmt.Sprintf("http://%s:%s/container_list", host, port)
+func GetHostContainers(host string) ([]Container, error) {
+	url := "http://" + host + "/container_list_local"
 	body, err := http.Get(url)
 	if err != nil {
 		fmt.Println("get error")
@@ -943,6 +963,7 @@ func GetHostContainers(host, port string) ([]Container, error) {
 	if err3 != nil {
 		fmt.Println("json unmarshal error")
 		fmt.Println(err3)
+		return []Container{}, err3
 	}
 	return HostContainers, nil
 }
@@ -1033,61 +1054,63 @@ func IndexHandler(w http.ResponseWriter, _ *http.Request) {
 `
 	var info Info
 
-	FilesSplit, err3 := StorageListAll()
+	FilesString, err3 := StorageList()
 	if err3 != nil {
-		Fail("StorageListAllError", err3, w)
+		Fail("StorageListError", err3, w)
 	}
-	FilesSplitSplit := strings.Split(FilesSplit, "\n")
-	for _, FileAndHost := range FilesSplitSplit {
-		PathSplit := strings.Split(FileAndHost, " ")
-		FileName := PathSplit[0]
-		HostName := PathSplit[1]
-		Port := PathSplit[2]
-		FileSize, err := GetFileSize(FileName, HostName, Port)
-		if err != nil {
-			fmt.Println("GetFileSize error ")
-			fmt.Println("file: " + FileName)
-			fmt.Println(err)
-			continue
-		}
-		FileStorage := InfoStorage{FileName, FileSize, HostName}
-		info.Storage = append(info.Storage, FileStorage)
+	var f []File
+	err := json.Unmarshal([]byte(FilesString), &f)
+	if err != nil {
+		Fail("json unmarshal error", err, w)
+		return
 	}
-	for host, port := range hosts {
-		HostInfo, err := GetHostInfo(host, port)
-		if err != nil {
-			fmt.Println("GetHostInfo error")
-			fmt.Println("Host: " + host)
-			fmt.Println(err)
-			continue
-		}
-		InfoHost := InfoHosts{host, HostInfo.Cores, HostInfo.MEMORY, HostInfo.DISK}
-		info.Hosts = append(info.Hosts, InfoHost)
+	for _, file := range f {
+		info.Storage = append(info.Storage, file)
 	}
-	for host, port := range hosts {
-		HostPods, err := GetHostPods(host, port)
-		if err != nil {
-			fmt.Println("GetHostPods error")
-			fmt.Println("Host: " + host)
-			fmt.Println(err)
-			continue
-		}
-		for _, Pod := range HostPods {
-			info.Pods = append(info.Pods, Pod)
-		}
+
+	HostsString, err2 := ListHosts()
+	if err2 != nil {
+		Fail("ListHosts error", err2, w)
+		return
 	}
-	for host, port := range hosts {
-		HostContainers, err := GetHostContainers(host, port)
-		if err != nil {
-			fmt.Println("GetHostContainers error")
-			fmt.Println("Host: " + host)
-			fmt.Println(err)
-			continue
-		}
-		for _, Container := range HostContainers {
-			info.Containers = append(info.Containers, Container)
-		}
+	var h []Host
+	err4 := json.Unmarshal([]byte(HostsString), &h)
+	if err4 != nil {
+		Fail("json unmarshal error", err4, w)
+		return
 	}
+	for _, host := range h {
+		info.Hosts = append(info.Hosts, host)
+	}
+
+	PodsString, err5 := ListPods()
+	if err5 != nil {
+		Fail("ListPods error", err2, w)
+		return
+	}
+	var p []Pod
+	err6 := json.Unmarshal([]byte(PodsString), &h)
+	if err6 != nil {
+		Fail("json unmarshal error", err6, w)
+		return
+	}
+	for _, pod := range p {
+		info.Pods = append(info.Pods, pod)
+	}
+
+	ContainersString, err := ListAllContainers()
+	if err != nil {
+		Fail("ListAllContainers error", err, w)
+	}
+	var c []Container
+	err7 := json.Unmarshal([]byte(ContainersString), &c)
+	if err7 != nil {
+		Fail("json unmarshal error", err7, w)
+	}
+	for _, cont := range c {
+		info.Containers = append(info.Containers, cont)
+	}
+
 	t, err2 := template.New("index").Parse(tpl)
 	if err2 != nil {
 		fmt.Println("index html rendering error")
@@ -1095,44 +1118,70 @@ func IndexHandler(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err2.Error()))
 	}
-	err3 := t.Execute(w, info)
-	if err3 != nil {
+	err = t.Execute(w, info)
+	if err != nil {
 		fmt.Println("template error")
-		fmt.Println(err3)
+		fmt.Println(err)
 	}
 	return
 }
 
 func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("pod add")
-	var p pod
+	var p Pod
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
-		fmt.Println("json decoding error")
-		fmt.Println(err)
-		http.Error(w, err.Error(), 500)
+		Fail("json decoding error", err, w)
 		return
 	}
-	pods = append(pods, p)
+	dir, err := EtcdListDir("/rws/pods")
+	if err != nil {
+		Fail("EtcdListDir error", err, w)
+		return
+	}
+	found := false
+	for _, c := range dir {
+		if c.Key == p.Name {
+			found = true
+		}
+	}
+	if found == true {
+		Fail("pod already exists", errors.New("pod already exists"), w)
+		return
+	}
+	ps, err := json.Marshal(p)
+	if err != nil {
+		Fail("json.Marshal error", err, w)
+		return
+	}
+	err = EtcdCreateKey("/rws/pods/"+p.Name, string(ps))
+	if err != nil {
+		Fail("EtcdCreateKey error", err, w)
+		return
+	}
+	hostsDir, err := EtcdListDir("/rws/hosts/")
+	if err != nil {
+		Fail("EtcdListDir error", err, w)
+	}
 	var i uint64
-	for host, port := range hosts {
-		if i >= p.count {
+	for _, h := range hostsDir {
+		if i >= p.Count {
 			break
 		}
-		url := fmt.Sprintf("http://%s:%s/host_info", host, port)
+		url := fmt.Sprintf("http://" + h.Key + "/host_info")
 		body, err := http.Get(url)
 		if err != nil {
 			fmt.Println("get error")
 			fmt.Println(body)
 			continue
 		}
-		var ThatHost HostConfig
+		var ThatHost Host
 		json.NewDecoder(body.Body).Decode(&ThatHost)
-		if ThatHost.DISK >= p.disk &&
-			ThatHost.CPUS >= p.cpus &&
-			ThatHost.MEMORY >= p.memory {
-			url := fmt.Sprintf("http://%s:%s/container_run", host, port)
-			c := Container{p.image, p.name + "-" + string(i)}
+		if ThatHost.Disk >= p.Disk &&
+			ThatHost.Cores >= p.Cores &&
+			ThatHost.Memory >= p.Memory {
+			url := "http://" + h.Key + "/container_run"
+			c := Container{p.Image, p.Name, p.Disk, p.Memory, p.Cores, h.Key, ""}
 			b := new(bytes.Buffer)
 			json.NewEncoder(b).Encode(c)
 			resp, err1 := http.Post(url, "application/json", b)
@@ -1153,10 +1202,19 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 				fmt.Println(err2)
 				continue
 			}
-			p.ids = append(p.ids, string(body))
+			c.ID = string(body)
+			p.Containers = append(p.Containers, c)
 			fmt.Println(body)
 			i += 1
 		}
+	}
+	s, err := json.Marshal(p)
+	if err != nil {
+		Fail("json.Marshal error", err, w)
+	}
+	err2 := EtcdSetKey("/rws/pods/"+p.Name, string(s))
+	if err2 != nil {
+		Fail("EtcdSetKey error", err2, w)
 	}
 	fmt.Println("all pod containers running")
 	return
@@ -1164,15 +1222,20 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 
 func PodStopHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("pod stop")
-	var p pod
+	var p Pod
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	for _, id := range p.ids {
-		for host, port := range hosts {
-			url := fmt.Sprintf("http://%s/%s/container_list", host, port)
+	dir, err2 := EtcdListDir("/rws/hosts")
+	if err2 != nil {
+		Fail("EtcdListDir error", err2, w)
+		return
+	}
+	for _, c := range p.Containers {
+		for _, host := range dir {
+			url := "http://" + host.Key + "/container_list"
 			body, err := http.Get(url)
 			if err != nil {
 				fmt.Println("get error")
@@ -1189,13 +1252,18 @@ func PodStopHandler(w http.ResponseWriter, r *http.Request) {
 				fmt.Println(err2)
 				fmt.Println("response read error")
 			}
-			RemoteContainersSplit := strings.Split(string(b), "\n")
-			for _, RemoteContainer := range RemoteContainersSplit {
-				if RemoteContainer == id {
-					c := Container{"", id}
+			var RemoteContainers []Container
+			err3 := json.Unmarshal(b, &RemoteContainers)
+			if err != nil {
+				fmt.Println("json unmarshal error")
+				fmt.Println(err3)
+				continue
+			}
+			for _, RemoteContainer := range RemoteContainers {
+				if RemoteContainer.Name == c.ID {
 					b := new(bytes.Buffer)
 					json.NewEncoder(b).Encode(c)
-					url := fmt.Sprintf("%s:%s/container_stop", host, port)
+					url := "http://" + host.Key + "/container_stop"
 					resp, err1 := http.Post(url, "application/json", b)
 					if err1 != nil {
 						fmt.Println(err1)
@@ -1249,32 +1317,22 @@ func PodListHandler(w http.ResponseWriter, _ *http.Request) {
 	if err != nil {
 		Fail("PodsList error", err, w)
 	}
-	w.WriteHeader(http.StatusInternalServerError)
-	w.Write()
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(s))
 	return
 }
 
 func PodRemoveHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("pod remove")
-	var p pod
+	var p Pod
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	removed := false
-	for i, other := range pods {
-		if other.name == p.name {
-			pods = append(pods[:i], pods[i+1:]...)
-			removed = true
-		}
-	}
-	if removed {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(p.name))
-	} else {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(p.name))
+	err2 := EtcdDeleteKey("/rws/pods/" + p.Name)
+	if err2 != nil {
+		Fail("EtcdDeleteKey error", err2, w)
 	}
 	return
 }
@@ -1282,99 +1340,107 @@ func PodRemoveHandler(w http.ResponseWriter, r *http.Request) {
 func scheduler() {
 	for {
 		fmt.Println("run scheduler")
-		if len(pods) == 0 {
-			fmt.Println("no pods defined")
+		dir, err := EtcdListDir("/rws/pods")
+		if err != nil {
+			fmt.Println("EtcdListDir error")
+			fmt.Println(err)
 			time.Sleep(60 * time.Second)
 			continue
 		}
-		for index, p := range pods {
-			fmt.Println("Pod " + p.name + " should have " + string(len(p.ids)) + " containers")
-			var FoundIDs []string
-			for host, port := range hosts {
-				url := fmt.Sprintf("http://%s:%s/containers_list", host, port)
-				body, err := http.Get(url)
-				if err != nil {
-					fmt.Println("get error")
-					fmt.Println(body.Body)
-					continue
-				}
-				if body.StatusCode != 200 {
-					fmt.Println(body.StatusCode)
-					fmt.Println("status code error")
-					continue
-				}
-				b, err2 := ioutil.ReadAll(body.Body)
-				if err2 != nil {
-					fmt.Println(err2)
-					fmt.Println("response read error")
-					continue
-				}
-				RemoteContainersSplit := strings.Split(string(b), "\n")
-				for _, remoteId := range RemoteContainersSplit {
-					for _, id := range p.ids {
-						if id == remoteId {
-							FoundIDs = append(FoundIDs, id)
-							break
-						}
-					}
-				}
+		var pods []Pod
+		for _, pod := range dir {
+			var p Pod
+			err2 := json.Unmarshal([]byte(pod.Value), &p)
+			if err2 != nil {
+				fmt.Println("json unmarshal error")
+				fmt.Println(err2)
+				continue
 			}
-			fmt.Println("Pod " + p.name + " have " + string(len(FoundIDs)) + " running containers")
-			if len(FoundIDs) < len(p.ids) {
-				for IDNum, ID := range p.ids {
-					found := false
-					for _, FoundID := range FoundIDs {
-						if ID == FoundID {
-							found = true
-							break
-						}
-					}
-					if found == false {
-						p.ids = append(p.ids[:IDNum], p.ids[IDNum+1:]...)
-					}
-				}
-				RunNum := len(p.ids) - len(FoundIDs)
-				i := 0
-				for {
-					for host, port := range hosts {
-						if i >= RunNum {
-							break
-						}
-						url := fmt.Sprintf("%s:%s/container_run", host, port)
-						ContainerNameId := len(p.ids)
-						name := p.name + "-" + string(ContainerNameId)
-						c := Container{p.image, name}
-						b := new(bytes.Buffer)
-						json.NewEncoder(b).Encode(c)
-						resp, err1 := http.Post(url, "application/json", b)
-						if err1 != nil {
-							fmt.Println(err1)
-							panic("request error")
-						}
-						if resp.StatusCode != 200 {
-							fmt.Println(resp.StatusCode)
-							fmt.Println(resp)
-							panic("request status code error")
-						}
-						b2, err2 := ioutil.ReadAll(resp.Body)
-						if err2 != nil {
-							fmt.Println(err2)
-							panic("response read error")
-						}
-						fmt.Println("run new container for pod " + p.name)
-						pods[index].ids = append(pods[index].ids, string(b2))
-						i += 1
-					}
-				}
-				if i >= RunNum {
-					break
-				}
-			}
-			time.Sleep(60 * time.Second)
+			pods = append(pods, p)
 		}
+		if len(pods) == 0 {
+			fmt.Println("no pods found")
+			time.Sleep(60 * time.Second)
+			continue
+		}
+		var hosts []Host
+		dir, err2 := EtcdListDir("/rws/hosts")
+		if err2 != nil {
+			fmt.Println("EtcdListDir error")
+			fmt.Println(err2)
+			continue
+		}
+		for _, host := range dir {
+			var h Host
+			err2 := json.Unmarshal([]byte(host.Value), &h)
+			if err2 != nil {
+				fmt.Println("json unmarshal error")
+				fmt.Println(err2)
+				continue
+			}
+			hosts = append(hosts, h)
+		}
+		if len(hosts) == 0 {
+			fmt.Println("no hosts found")
+			time.Sleep(60 * time.Second)
+			continue
+		}
+		for _, p := range pods {
+			fmt.Println("Pod " + p.Name + " should have " + string(p.Count) + " containers")
+			var foundContainers uint64
+			for _, h := range hosts {
+				hostRunningContainers, err4 := GetHostContainers(h.Name)
+				if err4 != nil {
+					fmt.Println("getHostContainers error")
+					fmt.Println(err4)
+					continue
+				}
+				for _, podContainer := range p.Containers {
+					for _, hostContainer := range hostRunningContainers {
+						if podContainer.ID == hostContainer.ID {
+							foundContainers += 1
+							continue
+						}
+					}
+				}
+			}
+			if foundContainers == p.Count {
+				continue
+			}
+			var containersToRun uint64
+			if foundContainers < p.Count {
+				containersToRun = p.Count - foundContainers
+			} else {
+				containersToRun = foundContainers - p.Count
+			}
+			var i uint64
+			for i = 0; i < containersToRun; i++ {
+				for _, host := range hosts {
+					id, err := RunContainer(p.Image, p.Name)
+					if err != nil {
+						fmt.Println(err)
+						continue
+					}
+					var c = Container{p.Image, p.Name, p.Disk, p.Memory, p.Cores, host.Name, id}
+					p.Containers = append(p.Containers, c)
+				}
+			}
+			podMarshalled, err4 := json.Marshal(p)
+			if err4 != nil {
+				fmt.Println("json.Marshal error")
+				fmt.Println(err4)
+				continue
+			}
+			err5 := EtcdSetKey("/rws/pods/"+p.Name, string(podMarshalled))
+			if err5 != nil {
+				fmt.Println("EtcdSetKey error")
+				fmt.Println(err5)
+				continue
+			}
+		}
+		time.Sleep(60 * time.Second)
 	}
 }
-
 func main() {
 	fmt.Println("starting server")
 	etcdCfg := etcdClient.Config{
@@ -1396,7 +1462,7 @@ func main() {
 	http.HandleFunc("/container_run", ContainerRunHandler)
 	http.HandleFunc("/container_stop", ContainerStopHandler)
 	http.HandleFunc("/container_list", ContainerListHandler)
-	http.HandleFunc("/container_list_all", ContainerListAllHandler)
+	http.HandleFunc("/container_list_local", ContainerListLocalHandler)
 	http.HandleFunc("/container_remove", ContainerRemoveHandler)
 	http.HandleFunc("/pod_add", PodAddHandler)
 	http.HandleFunc("/pod_stop", PodStopHandler)
