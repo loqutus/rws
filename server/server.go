@@ -24,7 +24,7 @@ import (
 
 const addr = "0.0.0.0:8888"
 const DataDir = "data"
-const EtcdHost = "http://pi1:2379"
+const EtcdHost = "http://10.0.0.1:2379"
 
 var LocalHostName, _ = os.Hostname()
 
@@ -480,7 +480,7 @@ func ContainerListLocalHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func RunContainer(imageName, containerName string) (string, error) {
-	fmt.Println("run container")
+	fmt.Println("RunContainer")
 	ctx := context.Background()
 	c := client.WithVersion("1.38")
 	cli, err := client.NewClientWithOpts(c)
@@ -732,12 +732,12 @@ func AddHost(hostName string) error {
 	}
 	HostInfo, err3 := GetHostInfo(hostName)
 	if err3 != nil {
-		fmt.Println("host info get error")
+		fmt.Println("AddHost: host info get error")
 		return err3
 	}
 	b, err4 := json.Marshal(HostInfo)
 	if err4 != nil {
-		fmt.Println("host info json marshal error")
+		fmt.Println("AddHost: host info json marshal error")
 		return err4
 	}
 	HostInfoString := string(b)
@@ -746,9 +746,9 @@ func AddHost(hostName string) error {
 		if err2 != nil {
 			return err2
 		}
-		fmt.Println("host " + hostName + " added")
+		fmt.Println("AddHost: host " + hostName + " added")
 	} else {
-		fmt.Println("host already exists")
+		fmt.Println("AddHost: host already exists")
 		return errors.New("host already exists")
 	}
 	return nil
@@ -759,16 +759,16 @@ func HostAddHandler(w http.ResponseWriter, r *http.Request) {
 	var h Host
 	err := json.NewDecoder(r.Body).Decode(&h)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println("HostAddHandler: " + err.Error())
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	err2 := AddHost(h.Name)
 	if err2 == nil {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "OK")
+		fmt.Fprintf(w, "HostAddHandler: OK")
 	} else {
-		Fail("host create error", err2, w)
+		Fail("HostAddHandler: host create error", err2, w)
 	}
 }
 
@@ -915,7 +915,8 @@ func GetHostInfo(host string) (Host, error) {
 	url := "http://" + host + "/host_info"
 	body, err := http.Get(url)
 	if err != nil {
-		fmt.Println("get error")
+		fmt.Println("GetHostInfo: get error")
+		fmt.Println("GetHostInfo: " + url)
 		fmt.Println(body)
 		return Host{}, err
 	}
@@ -1339,7 +1340,7 @@ func PodRemoveHandler(w http.ResponseWriter, r *http.Request) {
 
 func scheduler() {
 	for {
-		fmt.Println("run scheduler")
+		fmt.Println("scheduler: run scheduler")
 		dir, err := EtcdListDir("/rws/pods")
 		if err != nil {
 			fmt.Println("EtcdListDir error")
@@ -1352,21 +1353,21 @@ func scheduler() {
 			var p Pod
 			err2 := json.Unmarshal([]byte(pod.Value), &p)
 			if err2 != nil {
-				fmt.Println("json unmarshal error")
+				fmt.Println("scheduler: json unmarshal error")
 				fmt.Println(err2)
 				continue
 			}
 			pods = append(pods, p)
 		}
 		if len(pods) == 0 {
-			fmt.Println("no pods found")
+			fmt.Println("scheduler: no pods found")
 			time.Sleep(60 * time.Second)
 			continue
 		}
 		var hosts []Host
 		dir, err2 := EtcdListDir("/rws/hosts")
 		if err2 != nil {
-			fmt.Println("EtcdListDir error")
+			fmt.Println("scheduler: EtcdListDir error")
 			fmt.Println(err2)
 			continue
 		}
@@ -1374,24 +1375,24 @@ func scheduler() {
 			var h Host
 			err2 := json.Unmarshal([]byte(host.Value), &h)
 			if err2 != nil {
-				fmt.Println("json unmarshal error")
+				fmt.Println("scheduler: json unmarshal error")
 				fmt.Println(err2)
 				continue
 			}
 			hosts = append(hosts, h)
 		}
 		if len(hosts) == 0 {
-			fmt.Println("no hosts found")
+			fmt.Println("scheduler: no hosts found")
 			time.Sleep(60 * time.Second)
 			continue
 		}
 		for _, p := range pods {
-			fmt.Println("Pod " + p.Name + " should have " + string(p.Count) + " containers")
+			fmt.Println("scheduler: Pod " + p.Name + " should have " + string(p.Count) + " containers")
 			var foundContainers uint64
 			for _, h := range hosts {
 				hostRunningContainers, err4 := GetHostContainers(h.Name)
 				if err4 != nil {
-					fmt.Println("getHostContainers error")
+					fmt.Println("scheduler: getHostContainers error")
 					fmt.Println(err4)
 					continue
 				}
@@ -1427,13 +1428,13 @@ func scheduler() {
 			}
 			podMarshalled, err4 := json.Marshal(p)
 			if err4 != nil {
-				fmt.Println("json.Marshal error")
+				fmt.Println("scheduler: json.Marshal error")
 				fmt.Println(err4)
 				continue
 			}
 			err5 := EtcdSetKey("/rws/pods/"+p.Name, string(podMarshalled))
 			if err5 != nil {
-				fmt.Println("EtcdSetKey error")
+				fmt.Println("scheduler: EtcdSetKey error")
 				fmt.Println(err5)
 				continue
 			}

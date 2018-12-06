@@ -213,7 +213,6 @@ func container(action, image, name string) string {
 
 type Host struct {
 	Name string
-	Port string
 }
 
 // hosts add localhost
@@ -222,7 +221,7 @@ type Host struct {
 func hosts(action, hostName, hostPort string) string {
 	var resp []byte
 	var err error
-	h := Host{hostName, hostPort}
+	h := Host{hostName + ":" + hostPort}
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(h)
 	switch action {
