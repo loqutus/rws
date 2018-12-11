@@ -26,7 +26,7 @@ const addr = "0.0.0.0:8888"
 const DataDir = "data"
 const EtcdHost = "http://10.0.0.1:2379"
 
-var LocalHostName, _ = os.Hostname()
+var LocalHostName, _ = os.Hostname() + ":8888"
 
 var EtcdClient etcdClient.Client
 
@@ -52,6 +52,7 @@ type Container struct {
 	Cores  uint64
 	Host   string
 	ID     string
+	Cmd    []string
 }
 
 type Pod struct {
@@ -61,6 +62,7 @@ type Pod struct {
 	Cores      uint64
 	Memory     uint64
 	Disk       uint64
+	Cmd        []string
 	Containers []Container
 }
 
@@ -479,44 +481,48 @@ func ContainerListLocalHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Write([]byte(s))
 }
 
-func RunContainer(imageName, containerName string) (string, error) {
+func RunContainer(imageName, containerName string, cmd []string) (string, error) {
 	fmt.Println("RunContainer")
 	ctx := context.Background()
 	c := client.WithVersion("1.38")
 	cli, err := client.NewClientWithOpts(c)
 	if err != nil {
-		fmt.Println("client create error")
+		fmt.Println("RunContainer: client create error")
 		fmt.Println(err)
 		return "", err
 	}
 	out, err2 := cli.ImagePull(ctx, imageName, types.ImagePullOptions{})
 	if err2 != nil {
-		fmt.Println("Image pull error")
+		fmt.Println("RunContainer: image pull error")
 		fmt.Println(out)
 		fmt.Println(err2)
 		return "", err2
 	}
 	resp, err3 := cli.ContainerCreate(ctx, &container.Config{
 		Image: imageName,
+		Cmd:   cmd,
 	}, nil, nil, containerName)
 	if err3 != nil {
-		fmt.Println("container create error")
+		fmt.Println("RunContainer: container create error")
 		fmt.Println(resp)
 		fmt.Println(err3)
 		return "", err3
 	}
 	err4 := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
 	if err4 != nil {
-		fmt.Println("container start error")
+		fmt.Println("RunContainer: container start error")
+		fmt.Println(err4)
 		return "", err4
 	}
-	var cont Container
+	cont := Container{Name: containerName, Image: imageName, Host: LocalHostName}
 	containerBytes, err5 := json.Marshal(cont)
 	if err5 != nil {
 		return "", err5
 	}
-	err6 := EtcdCreateKey("/rws/container/"+containerName, string(containerBytes))
+	err6 := EtcdCreateKey("/rws/containers/"+containerName, string(containerBytes))
 	if err6 != nil {
+		fmt.Println("ContainerStopHandler:: EtcdCreateKey error ")
+		fmt.Println(err6)
 		to := 5 * time.Second
 		err7 := cli.ContainerStop(ctx, resp.ID, &to)
 		if err7 == nil {
@@ -525,6 +531,7 @@ func RunContainer(imageName, containerName string) (string, error) {
 		return "", nil
 
 	}
+	fmt.Println("RunContainer: container " + resp.ID + " running")
 	return resp.ID, nil
 }
 
@@ -603,13 +610,14 @@ func RemoveContainer(containerName string) error {
 }
 
 func ContainerRunHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("ContainerRunHandler")
 	var c Container
 	err := json.NewDecoder(r.Body).Decode(&c)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	id, err := RunContainer(c.Image, c.Name)
+	id, err := RunContainer(c.Image, c.Name, c.Cmd)
 	if err == nil {
 		fmt.Fprintf(w, id)
 	} else {
@@ -619,25 +627,41 @@ func ContainerRunHandler(w http.ResponseWriter, r *http.Request) {
 
 func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("ContainerStopHandler")
+	bodyBytes, err2 := ioutil.ReadAll(r.Body)
+	fmt.Println(string(bodyBytes))
+	if err2 != nil {
+		Fail("ContainerStopHandler: response read error", err2, w)
+	}
 	var c Container
-	err := json.NewDecoder(r.Body).Decode(&c)
+	err := json.Unmarshal(bodyBytes, &c)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	dir, err4 := EtcdListDir("/rws/containers")
 	if err4 != nil {
-		Fail("EtcdListDir error", err4, w)
+		Fail("ContainerStopHandler: EtcdListDir error", err4, w)
 		return
 	}
+	var cont Container
 	found := false
 	for _, k := range dir {
-		if k.Key == c.Name {
+		keySplit := strings.Split(k.Key, "/")
+		keyName := keySplit[len(keySplit)-1]
+		if keyName == c.Name {
 			found = true
+			contString, err5 := EtcdGetKey(k.Key)
+			if err5 != nil {
+				Fail("ContainerStopHandler: EtcdGetKey error", err5, w)
+			}
+			err6 := json.Unmarshal([]byte(contString), &cont)
+			if err6 != nil {
+				Fail("ContainerStopHandler: json.Unmarshal error", err6, w)
+			}
 		}
 	}
 	if found == false {
-		Fail("container not found", errors.New(""), w)
+		Fail("ContainerStopHandler: container not found", errors.New(""), w)
 		return
 	}
 	if c.Host == LocalHostName {
@@ -645,19 +669,19 @@ func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 		if err2 == nil {
 			fmt.Fprintf(w, "OK")
 		} else {
-			Fail("stopContainer failure", err2, w)
+			Fail("ContainerStopHandler: stopContainer failure", err2, w)
 			return
 		}
 	} else {
-		url := "http://" + c.Host + "/container_stop/" + c.Name
+		url := "http://" + cont.Host + "/container_stop/" + cont.Name
 		body, err3 := http.Get(url)
 		if err3 == nil {
 			if body.StatusCode != 200 {
-				Fail("http.Get status code error: "+string(body.StatusCode), err3, w)
+				Fail("ContainerStopHandler: http.Get status code error: "+string(body.StatusCode), err3, w)
 				return
 			}
 		} else {
-			Fail("http.Get error", err3, w)
+			Fail("ContainerStopHandler: http.Get error", err3, w)
 			return
 		}
 
@@ -1182,7 +1206,7 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 			ThatHost.Cores >= p.Cores &&
 			ThatHost.Memory >= p.Memory {
 			url := "http://" + h.Key + "/container_run"
-			c := Container{p.Image, p.Name, p.Disk, p.Memory, p.Cores, h.Key, ""}
+			c := Container{p.Image, p.Name, p.Disk, p.Memory, p.Cores, h.Key, "", p.Cmd}
 			b := new(bytes.Buffer)
 			json.NewEncoder(b).Encode(c)
 			resp, err1 := http.Post(url, "application/json", b)
@@ -1417,12 +1441,12 @@ func scheduler() {
 			var i uint64
 			for i = 0; i < containersToRun; i++ {
 				for _, host := range hosts {
-					id, err := RunContainer(p.Image, p.Name)
+					id, err := RunContainer(p.Image, p.Name, p.Cmd)
 					if err != nil {
 						fmt.Println(err)
 						continue
 					}
-					var c = Container{p.Image, p.Name, p.Disk, p.Memory, p.Cores, host.Name, id}
+					var c = Container{p.Image, p.Name, p.Disk, p.Memory, p.Cores, host.Name, id, p.Cmd}
 					p.Containers = append(p.Containers, c)
 				}
 			}

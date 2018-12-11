@@ -5,6 +5,7 @@ CGO_ENABLED=0 go build .
 docker build . -t rws
 docker tag rws loqutus/rws
 docker push loqutus/rws
+docker container prune -f
 docker-compose  -f docker-compose-etcd.yml down
 docker-compose  -f docker-compose-etcd.yml up -d
 export ETCD_UNSUPPORTED_ARCH=arm
@@ -26,7 +27,10 @@ for i in $(seq 1 5); do
   ./client --action storage_upload --name $i.txt --hostname "http://10.0.0.$i:8888"
   sleep 1
 done
-./client --action container_run --name test --image "arm32v6/alpine"
+etcdctl ls /rws/hosts/
+etcdctl ls /rws/storage/
+./client --action container_run --name test --image "arm32v6/alpine" --cmd "/bin/sleep 60"
+etcdctl ls /rws/containers/
 ./client --action container_stop --name test
 ./client --action container_remove --name test
 ./client --action pod_add --name test --image "arm32v6/alpine"

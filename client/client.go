@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 const actions = "storage_upload, storage_download, storage_remove, storage_list, storage_list_all, container_run, container_stop, container_list, container_list_all, container_remove, host_add, host_remove, host_list, host_info, pod_add, pod_stop, pod_list, pod_remove"
@@ -14,8 +15,14 @@ const actions = "storage_upload, storage_download, storage_remove, storage_list,
 var HostName string
 
 type Container struct {
-	Image string
-	Name  string
+	Image  string
+	Name   string
+	Disk   uint64
+	Memory uint64
+	Cores  uint64
+	Host   string
+	ID     string
+	Cmd    []string
 }
 
 func storageUpload(name string) error {
@@ -192,15 +199,19 @@ func req(action string, bodyBuffer *bytes.Buffer) ([]byte, error) {
 // mysql run
 // mysql stop id
 // mysql list
-func container(action, image, name string) string {
+func container(action, image, name string, cmd []string) string {
 	var err error
 	var resp []byte
-	c := Container{image, name}
-	b := new(bytes.Buffer)
-	json.NewEncoder(b).Encode(c)
+	c := Container{image, name, 1, 1, 1, "", "", cmd}
+	b, err2 := json.Marshal(c)
+	if err2 != nil {
+		fmt.Println(err2)
+		panic("json Marshal error")
+	}
+	buf := bytes.NewBuffer(b)
 	switch action {
 	case "container_list", "container_run", "container_stop", "container_remove", "container_list_all":
-		resp, err = req(action, b)
+		resp, err = req(action, buf)
 	default:
 		panic("unknown action")
 	}
@@ -271,7 +282,7 @@ func pods(action string, Pod pod) string {
 func main() {
 	// client --type storage --action upload --name file
 	// client --type storage --action list
-	var action, name, image, port string
+	var action, name, image, port, cmd string
 	var cpus, disk, memory, count uint64
 	flag.StringVar(&action, "action", "", actions)
 	flag.StringVar(&image, "image", "", "redis or mysql")
@@ -281,6 +292,7 @@ func main() {
 	flag.Uint64Var(&disk, "disk", 1, "disk for each container in pod")
 	flag.Uint64Var(&memory, "memory", 1, "memory for each container in pod")
 	flag.Uint64Var(&count, "count", 1, "containers cound in pod")
+	flag.StringVar(&cmd, "cmd", "", "command to run in container")
 	flag.StringVar(&HostName, "hostname", "http://localhost:8888", "hostname to connect to")
 	flag.Parse()
 	switch action {
@@ -293,7 +305,8 @@ func main() {
 			panic("file name required")
 		}
 	case "container_run", "container_stop", "container_list", "container_list_all", "container_remove":
-		_ = container(action, image, name)
+		cmds := strings.Split(cmd, " ")
+		_ = container(action, image, name, cmds)
 	case "host_add", "host_remove", "host_list", "host_info":
 		_ = hosts(action, name, port)
 	case "pod_add", "pod_stop", "pod_remove", "pod_list":
