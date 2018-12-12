@@ -26,7 +26,8 @@ const addr = "0.0.0.0:8888"
 const DataDir = "data"
 const EtcdHost = "http://10.0.0.1:2379"
 
-var LocalHostName, _ = os.Hostname() + ":8888"
+var LocalHostNameWithoutPort, _ = os.Hostname()
+var LocalHostName = LocalHostNameWithoutPort + ":8888"
 
 var EtcdClient etcdClient.Client
 
@@ -628,7 +629,6 @@ func ContainerRunHandler(w http.ResponseWriter, r *http.Request) {
 func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("ContainerStopHandler")
 	bodyBytes, err2 := ioutil.ReadAll(r.Body)
-	fmt.Println(string(bodyBytes))
 	if err2 != nil {
 		Fail("ContainerStopHandler: response read error", err2, w)
 	}
@@ -674,14 +674,20 @@ func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		url := "http://" + cont.Host + "/container_stop/" + cont.Name
-		body, err3 := http.Get(url)
+		b, err2 := json.Marshal(c)
+		if err2 != nil {
+			fmt.Println(err2)
+			panic("json Marshal error")
+		}
+		buf := bytes.NewBuffer(b)
+		body, err3 := http.Post(url, "application/json", buf)
 		if err3 == nil {
 			if body.StatusCode != 200 {
-				Fail("ContainerStopHandler: http.Get status code error: "+string(body.StatusCode), err3, w)
+				Fail("ContainerStopHandler: http.Post status code error: "+string(body.StatusCode), err3, w)
 				return
 			}
 		} else {
-			Fail("ContainerStopHandler: http.Get error", err3, w)
+			Fail("ContainerStopHandler: http.Post error", err3, w)
 			return
 		}
 
@@ -693,25 +699,40 @@ func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 
 func ContainerRemoveHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("ContainerRemoveHandler")
+	bodyBytes, err2 := ioutil.ReadAll(r.Body)
+	if err2 != nil {
+		Fail("ContainerRemoveHandler: response read error", err2, w)
+	}
 	var c Container
-	err := json.NewDecoder(r.Body).Decode(&c)
-	dir, err4 := EtcdListDir("/rws/containers")
-	if err4 != nil {
-		Fail("EtcdListDir error", err4, w)
+	err := json.Unmarshal(bodyBytes, &c)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
 		return
 	}
+	dir, err4 := EtcdListDir("/rws/containers")
+	if err4 != nil {
+		Fail("ContainerRemoveHandler: EtcdListDir error", err4, w)
+		return
+	}
+	var cont Container
 	found := false
 	for _, k := range dir {
-		if k.Key == c.Name {
+		keySplit := strings.Split(k.Key, "/")
+		keyName := keySplit[len(keySplit)-1]
+		if keyName == c.Name {
 			found = true
+			contString, err5 := EtcdGetKey(k.Key)
+			if err5 != nil {
+				Fail("ContainerStopHandler: EtcdGetKey error", err5, w)
+			}
+			err6 := json.Unmarshal([]byte(contString), &cont)
+			if err6 != nil {
+				Fail("ContainerStopHandler: json.Unmarshal error", err6, w)
+			}
 		}
 	}
 	if found == false {
-		Fail("container not found", errors.New(""), w)
-		return
-	}
-	if err != nil {
-		http.Error(w, err.Error(), 500)
+		Fail("ContainerRemoveHandler: container not found", errors.New(""), w)
 		return
 	}
 	if c.Host == LocalHostName {
@@ -719,23 +740,31 @@ func ContainerRemoveHandler(w http.ResponseWriter, r *http.Request) {
 		if err2 == nil {
 			fmt.Fprintf(w, "OK")
 		} else {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, err.Error())
+			Fail("ContainerStopHandler: stopContainer failure", err2, w)
+			return
 		}
 	} else {
-		url := "http://" + c.Host + "/container_remove/" + c.Name
-		body, err3 := http.Get(url)
-		if err3 != nil {
+		url := "http://" + cont.Host + "/container_remove/" + cont.Name
+		b, err2 := json.Marshal(c)
+		if err2 != nil {
+			fmt.Println(err2)
+			panic("json Marshal error")
+		}
+		buf := bytes.NewBuffer(b)
+		body, err3 := http.Post(url, "application/json", buf)
+		if err3 == nil {
 			if body.StatusCode != 200 {
-				Fail("http.Get status code error: "+string(body.StatusCode), err3, w)
+				Fail("ContainerRemovepHandler: http.Post status code error: "+string(body.StatusCode), err3, w)
 				return
 			}
 		} else {
-			Fail("http.Get error", err3, w)
+			Fail("ContainerStopHandler: http.Post error", err3, w)
 			return
 		}
 	}
-
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+	return
 }
 
 func AddHost(hostName string) error {
