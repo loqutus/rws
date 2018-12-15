@@ -612,17 +612,46 @@ func RemoveContainer(containerName string) error {
 
 func ContainerRunHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("ContainerRunHandler")
+	bodyBytes, err2 := ioutil.ReadAll(r.Body)
+	if err2 != nil {
+		Fail("ContainerRunHandler: response read error", err2, w)
+	}
 	var c Container
-	err := json.NewDecoder(r.Body).Decode(&c)
+	err := json.Unmarshal(bodyBytes, &c)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		Fail("ContainerRunHandler: json.Unmarshal error", err, w)
 		return
 	}
-	id, err := RunContainer(c.Image, c.Name, c.Cmd)
-	if err == nil {
-		fmt.Fprintf(w, id)
+	url := fmt.Sprintf("http://" + LocalHostName + "/host_info")
+	resp, err := http.Get(url)
+	if err != nil {
+		Fail("ContainerRunHandler: Get error", err, w)
+		return
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		Fail("ContainerRunHandler: ioutil.ReadAll error", err, w)
+		return
+	}
+	var ThatHost Host
+	err3 := json.Unmarshal(body, &ThatHost)
+	if err3 != nil {
+		Fail("PodAddHandler: json.Unmarshal error", err3, w)
+	}
+	if ThatHost.Disk >= c.Disk &&
+		ThatHost.Cores >= c.Cores &&
+		ThatHost.Memory >= c.Memory {
+		id, err := RunContainer(c.Image, c.Name, c.Cmd)
+		if err != nil {
+			Fail("PodAddHandler: RunContainer error", err, w)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(id))
 	} else {
-		http.Error(w, err.Error(), 500)
+		Fail("PodAddHandler: this host can't run this container", errors.New("can't run container on this host"), w)
+		return
 	}
 }
 
@@ -635,7 +664,7 @@ func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 	var c Container
 	err := json.Unmarshal(bodyBytes, &c)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		Fail("ContainerStopHandler: json.Unmarshal error", err, w)
 		return
 	}
 	dir, err4 := EtcdListDir("/rws/containers")
@@ -1181,56 +1210,81 @@ func IndexHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func PodAddHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("pod add")
+	fmt.Println("PodAddHandler")
+	bodyBytes, err2 := ioutil.ReadAll(r.Body)
+	if err2 != nil {
+		Fail("PodAddHandler: response read error", err2, w)
+	}
 	var p Pod
-	err := json.NewDecoder(r.Body).Decode(&p)
+	err := json.Unmarshal(bodyBytes, &p)
 	if err != nil {
-		Fail("json decoding error", err, w)
+		Fail("PodAddHandler: json.Unmarshal error", err, w)
 		return
 	}
 	dir, err := EtcdListDir("/rws/pods")
 	if err != nil {
-		Fail("EtcdListDir error", err, w)
+		Fail("PodAddHandler: EtcdListDir error", err, w)
 		return
 	}
+	//var pod Pod
 	found := false
-	for _, c := range dir {
-		if c.Key == p.Name {
+	for _, k := range dir {
+		keySplit := strings.Split(k.Key, "/")
+		keyName := keySplit[len(keySplit)-1]
+		if keyName == p.Name {
 			found = true
+			//contString, err5 := EtcdGetKey(k.Key)
+			//if err5 != nil {
+			//	Fail("PodAddHandler: EtcdGetKey error", err5, w)
+			//}
+			//err6 := json.Unmarshal([]byte(contString), &pod)
+			//if err6 != nil {
+			//	Fail("PodAddHandler: json.Unmarshal error", err6, w)
 		}
 	}
 	if found == true {
-		Fail("pod already exists", errors.New("pod already exists"), w)
+		Fail("PodAddHandler: pod already exists", errors.New("pod already exists"), w)
 		return
 	}
 	ps, err := json.Marshal(p)
 	if err != nil {
-		Fail("json.Marshal error", err, w)
+		Fail("PodAddHandler: json.Marshal error", err, w)
 		return
 	}
 	err = EtcdCreateKey("/rws/pods/"+p.Name, string(ps))
 	if err != nil {
-		Fail("EtcdCreateKey error", err, w)
+		Fail("PodAddHandler: EtcdCreateKey error", err, w)
 		return
 	}
 	hostsDir, err := EtcdListDir("/rws/hosts/")
 	if err != nil {
-		Fail("EtcdListDir error", err, w)
+		Fail("PodAddHandler: EtcdListDir error", err, w)
 	}
 	var i uint64
 	for _, h := range hostsDir {
 		if i >= p.Count {
 			break
 		}
-		url := fmt.Sprintf("http://" + h.Key + "/host_info")
-		body, err := http.Get(url)
+		keySplit := strings.Split(h.Key, "/")
+		keyName := keySplit[len(keySplit)-1]
+		url := fmt.Sprintf("http://" + keyName + "/host_info")
+		resp, err := http.Get(url)
 		if err != nil {
-			fmt.Println("get error")
-			fmt.Println(body)
+			Fail("PodAddHandler: http.get error", err, w)
 			continue
 		}
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			Fail("PodAddHandler: ioutil.ReadAll error", err, w)
+			return
+		}
 		var ThatHost Host
-		json.NewDecoder(body.Body).Decode(&ThatHost)
+		err3 := json.Unmarshal(body, &ThatHost)
+		if err3 != nil {
+			Fail("PodAddHandler: json.Unmarshal error", err3, w)
+			return
+		}
 		if ThatHost.Disk >= p.Disk &&
 			ThatHost.Cores >= p.Cores &&
 			ThatHost.Memory >= p.Memory {
@@ -1266,9 +1320,9 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		Fail("json.Marshal error", err, w)
 	}
-	err2 := EtcdSetKey("/rws/pods/"+p.Name, string(s))
-	if err2 != nil {
-		Fail("EtcdSetKey error", err2, w)
+	err7 := EtcdSetKey("/rws/pods/"+p.Name, string(s))
+	if err7 != nil {
+		Fail("EtcdSetKey error", err7, w)
 	}
 	fmt.Println("all pod containers running")
 	return
