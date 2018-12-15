@@ -66,10 +66,10 @@ func TestHostInfo(t *testing.T) {
 }
 
 func TestPod(t *testing.T) {
-	fmt.Println("test pod add")
-	_ = pods("pod_add", pod{})
-	fmt.Println("test pod list")
-	_ = pods("pod_list", pod{})
-	fmt.Println("test pod remove")
-	_ = pods("pod_remove", pod{})
+	fmt.Println("test Pod add")
+	_ = pods("pod_add", Pod{})
+	fmt.Println("test Pod list")
+	_ = pods("pod_list", Pod{})
+	fmt.Println("test Pod remove")
+	_ = pods("pod_remove", Pod{})
 }

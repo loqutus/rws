@@ -31,9 +31,10 @@ etcdctl ls /rws/hosts/
 etcdctl ls /rws/storage/
 ./client --action container_run --name test --image "arm32v6/alpine" --cmd "/bin/sleep 60"
 etcdctl ls /rws/containers/
+sleep 10
 ./client --action container_stop --name test
 ./client --action container_remove --name test
-./client --action pod_add --name test --image "arm32v6/alpine"
+./client --action pod_add --name test --image "arm32v6/alpine" --cmd "/bin/sleep 60"
 ./client --action pod_list
 for i in $(seq 1 5); do
     ssh pi$i docker-compose down

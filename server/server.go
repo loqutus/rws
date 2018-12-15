@@ -1251,6 +1251,7 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 		Fail("PodAddHandler: json.Marshal error", err, w)
 		return
 	}
+	fmt.Println(string(ps))
 	err = EtcdCreateKey("/rws/pods/"+p.Name, string(ps))
 	if err != nil {
 		Fail("PodAddHandler: EtcdCreateKey error", err, w)

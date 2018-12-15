@@ -248,23 +248,24 @@ func hosts(action, hostName, hostPort string) string {
 	}
 }
 
-type pod struct {
-	name    string
-	image   string
-	cpus    uint64
-	disk    uint64
-	memory  uint64
-	count   uint64
-	enabled bool
-	ids     []string
+type Pod struct {
+	Name       string
+	Image      string
+	Count      uint64
+	Cores      uint64
+	Memory     uint64
+	Disk       uint64
+	Cmd        []string
+	Containers []Container
 }
 
-func pods(action string, Pod pod) string {
-	b, err := json.Marshal(Pod)
+func pods(action string, pod Pod) string {
+	b, err := json.Marshal(pod)
 	if err != nil {
 		fmt.Println("json marshal error")
 		panic(err)
 	}
+	fmt.Println(string(b))
 	buf := bytes.NewBuffer(b)
 	switch action {
 	case "pod_add", "pod_remove", "pod_list", "pod_info":
@@ -283,15 +284,15 @@ func main() {
 	// client --type storage --action upload --name file
 	// client --type storage --action list
 	var action, name, image, port, cmd string
-	var cpus, disk, memory, count uint64
+	var cores, disk, memory, count uint64
 	flag.StringVar(&action, "action", "", actions)
 	flag.StringVar(&image, "image", "", "redis or mysql")
 	flag.StringVar(&name, "name", "", "container/file/host name")
 	flag.StringVar(&port, "port", "", "host port")
-	flag.Uint64Var(&cpus, "cpus", 1, "cpus for each container in pod")
-	flag.Uint64Var(&disk, "disk", 1, "disk for each container in pod")
-	flag.Uint64Var(&memory, "memory", 1, "memory for each container in pod")
-	flag.Uint64Var(&count, "count", 1, "containers cound in pod")
+	flag.Uint64Var(&cores, "cores", 1, "cores for each container in Pod")
+	flag.Uint64Var(&disk, "disk", 1, "disk for each container in Pod")
+	flag.Uint64Var(&memory, "memory", 1, "memory for each container in Pod")
+	flag.Uint64Var(&count, "count", 1, "containers cound in Pod")
 	flag.StringVar(&cmd, "cmd", "", "command to run in container")
 	flag.StringVar(&HostName, "hostname", "http://localhost:8888", "hostname to connect to")
 	flag.Parse()
@@ -310,9 +311,10 @@ func main() {
 	case "host_add", "host_remove", "host_list", "host_info":
 		_ = hosts(action, name, port)
 	case "pod_add", "pod_stop", "pod_remove", "pod_list":
-		var s []string
-		var Pod = pod{name, image, cpus, disk, memory, count, true, s}
-		_ = pods(action, Pod)
+		var c []Container
+		cmds := strings.Split(cmd, " ")
+		var pod = Pod{name, image, count, cores, memory, disk, cmds, c}
+		_ = pods(action, pod)
 	default:
 		fmt.Println("unknown action " + action)
 		panic(actions)
