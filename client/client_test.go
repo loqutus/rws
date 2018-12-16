@@ -40,15 +40,15 @@ func TestStorage(t *testing.T) {
 
 func TestContainer(t *testing.T) {
 	fmt.Println("test container run")
-	_ = container("container_run", "redis", "redis-test")
+	_ = container("container_run", "redis", "redis-test", "/bin/redis")
 	fmt.Println("test container list")
-	_ = container("container_list", "redis", "")
+	_ = container("container_list", "redis", "", "")
 	fmt.Println("test container list all")
-	_ = container("container_list_all", "redis", "")
+	_ = container("container_list_all", "redis", "", "")
 	fmt.Println("test container stop")
-	_ = container("container_stop", "redis", "redis-test")
+	_ = container("container_stop", "redis", "redis-test", "")
 	fmt.Println("container_remove")
-	_ = container("container_remove", "redis", "redis-test")
+	_ = container("container_remove", "redis", "redis-test", "")
 }
 
 func TestHost(t *testing.T) {

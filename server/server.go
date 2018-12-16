@@ -26,8 +26,9 @@ const addr = "0.0.0.0:8888"
 const DataDir = "data"
 const EtcdHost = "http://10.0.0.1:2379"
 
-var LocalHostNameWithoutPort, _ = os.Hostname()
-var LocalHostName = LocalHostNameWithoutPort + ":8888"
+var LocalHostName string
+var LocalIPPrefix = "10.0.0."
+var LocalPort = "8888"
 
 var EtcdClient etcdClient.Client
 
@@ -622,20 +623,13 @@ func ContainerRunHandler(w http.ResponseWriter, r *http.Request) {
 		Fail("ContainerRunHandler: json.Unmarshal error", err, w)
 		return
 	}
-	url := fmt.Sprintf("http://" + LocalHostName + "/host_info")
-	resp, err := http.Get(url)
-	if err != nil {
-		Fail("ContainerRunHandler: Get error", err, w)
-		return
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		Fail("ContainerRunHandler: ioutil.ReadAll error", err, w)
-		return
-	}
 	var ThatHost Host
-	err3 := json.Unmarshal(body, &ThatHost)
+	hostInfo, err := HostInfo()
+	if err != nil {
+		Fail("PodAddHandler: HostInfo error", err, w)
+		return
+	}
+	err3 := json.Unmarshal([]byte(hostInfo), &ThatHost)
 	if err3 != nil {
 		Fail("PodAddHandler: json.Unmarshal error", err3, w)
 	}
@@ -693,6 +687,7 @@ func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 		Fail("ContainerStopHandler: container not found", errors.New(""), w)
 		return
 	}
+	fmt.Println(c.Host)
 	if c.Host == LocalHostName {
 		err2 := StopContainer(c.Name)
 		if err2 == nil {
@@ -1552,6 +1547,13 @@ func scheduler() {
 }
 func main() {
 	fmt.Println("starting server")
+	hostNameBytes, err1 := ioutil.ReadFile("/etc/hostname")
+	if err1 != nil {
+		fmt.Println(err1)
+		panic("/etc/hostname reading error")
+	}
+	LocalHostNumber := string(hostNameBytes[len(hostNameBytes)-2])
+	LocalHostName = LocalIPPrefix + LocalHostNumber + ":" + LocalPort
 	etcdCfg := etcdClient.Config{
 		Endpoints: []string{EtcdHost},
 		Transport: etcdClient.DefaultTransport,

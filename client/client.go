@@ -265,7 +265,6 @@ func pods(action string, pod Pod) string {
 		fmt.Println("json marshal error")
 		panic(err)
 	}
-	fmt.Println(string(b))
 	buf := bytes.NewBuffer(b)
 	switch action {
 	case "pod_add", "pod_remove", "pod_list", "pod_info":
