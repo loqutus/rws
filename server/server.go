@@ -538,20 +538,26 @@ func RunContainer(imageName, containerName string, cmd []string) (string, error)
 }
 
 func StopContainer(containerName string) error {
-	fmt.Println("stop container")
+	fmt.Println("StopContainer")
 	ctx := context.Background()
 	c := client.WithVersion("1.38")
 	cli, err1 := client.NewClientWithOpts(c)
 	if err1 != nil {
-		fmt.Println("client create error")
+		fmt.Println("StopContainer: NewClientWithOpts error")
 		fmt.Println(err1)
 		return err1
 	}
-	ContainerId, _ := GetContainerId(containerName)
+	ContainerId, err := GetContainerId(containerName)
+	if err != nil {
+		fmt.Println("StopContainer: ContainerId error")
+		fmt.Println(err)
+		return err
+	}
+	fmt.Println(containerName)
 	fmt.Println(ContainerId)
 	err2 := cli.ContainerStop(ctx, ContainerId, nil)
 	if err2 != nil {
-		fmt.Println("container stop error")
+		fmt.Println("StopContainer: ContainerStop error")
 		fmt.Println(err2)
 		return err2
 	}
@@ -559,7 +565,7 @@ func StopContainer(containerName string) error {
 }
 
 func GetContainerId(containerName string) (string, error) {
-	fmt.Println("get containerId")
+	fmt.Println("GetContainerId")
 	dir, err := EtcdListDir("/rws/containers/")
 	if err != nil {
 		return "", err
@@ -654,6 +660,7 @@ func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 	bodyBytes, err2 := ioutil.ReadAll(r.Body)
 	if err2 != nil {
 		Fail("ContainerStopHandler: response read error", err2, w)
+		return
 	}
 	var c Container
 	err := json.Unmarshal(bodyBytes, &c)
@@ -676,20 +683,22 @@ func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 			contString, err5 := EtcdGetKey(k.Key)
 			if err5 != nil {
 				Fail("ContainerStopHandler: EtcdGetKey error", err5, w)
+				return
 			}
 			err6 := json.Unmarshal([]byte(contString), &cont)
 			if err6 != nil {
 				Fail("ContainerStopHandler: json.Unmarshal error", err6, w)
+				return
 			}
+			break
 		}
 	}
 	if found == false {
 		Fail("ContainerStopHandler: container not found", errors.New(""), w)
 		return
 	}
-	fmt.Println(c.Host)
-	if c.Host == LocalHostName {
-		err2 := StopContainer(c.Name)
+	if cont.Host == LocalHostName {
+		err2 := StopContainer(cont.Name)
 		if err2 == nil {
 			fmt.Fprintf(w, "OK")
 		} else {
@@ -698,10 +707,10 @@ func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		url := "http://" + cont.Host + "/container_stop/" + cont.Name
-		b, err2 := json.Marshal(c)
+		b, err2 := json.Marshal(cont)
 		if err2 != nil {
-			fmt.Println(err2)
-			panic("json Marshal error")
+			Fail("ContainerStopHandler: json Marshal error", err2, w)
+			return
 		}
 		buf := bytes.NewBuffer(b)
 		body, err3 := http.Post(url, "application/json", buf)
@@ -714,8 +723,8 @@ func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 			Fail("ContainerStopHandler: http.Post error", err3, w)
 			return
 		}
-
 	}
+	fmt.Println("ContainerStopHandler: container " + c.ID)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 	return
@@ -1325,7 +1334,7 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func PodStopHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("pod stop")
+	fmt.Println("PodStopHandler")
 	var p Pod
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
