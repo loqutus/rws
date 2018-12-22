@@ -516,7 +516,7 @@ func RunContainer(imageName, containerName string, cmd []string) (string, error)
 		fmt.Println(err4)
 		return "", err4
 	}
-	cont := Container{Name: containerName, Image: imageName, Host: LocalHostName}
+	cont := Container{Name: containerName, Image: imageName, Host: LocalHostName, ID:resp.ID}
 	containerBytes, err5 := json.Marshal(cont)
 	if err5 != nil {
 		return "", err5
@@ -572,7 +572,9 @@ func GetContainerId(containerName string) (string, error) {
 	}
 	found := false
 	for _, c := range dir {
-		if c.Key == containerName {
+		keySplit := strings.Split(c.Key, "/")
+		keyName := keySplit[len(keySplit)-1]
+		if keyName == containerName {
 			found = true
 		}
 	}
@@ -583,12 +585,12 @@ func GetContainerId(containerName string) (string, error) {
 	if err2 != nil {
 		return "", err2
 	}
-	var c Container
-	err3 := json.Unmarshal([]byte(containerString), &c)
+	var cont Container
+	err3 := json.Unmarshal([]byte(containerString), &cont)
 	if err3 != nil {
 		return "", err3
 	}
-	return c.ID, nil
+	return cont.ID, nil
 }
 
 func RemoveContainer(containerName string) error {
