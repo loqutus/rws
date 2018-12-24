@@ -270,8 +270,8 @@ func pods(action string, pod Pod) string {
 	case "pod_add", "pod_remove", "pod_list", "pod_info":
 		resp, err := req(action, buf)
 		if err != nil {
-			fmt.Println(err)
-			panic("get error")
+			fmt.Println("post error")
+			panic(err)
 		}
 		return string(resp)
 	default:
@@ -306,14 +306,17 @@ func main() {
 		}
 	case "container_run", "container_stop", "container_list", "container_list_all", "container_remove":
 		cmds := strings.Split(cmd, " ")
-		_ = container(action, image, name, cmds)
+		r := container(action, image, name, cmds)
+		fmt.Println(r)
 	case "host_add", "host_remove", "host_list", "host_info":
-		_ = hosts(action, name, port)
+		r := hosts(action, name, port)
+		fmt.Println(r)
 	case "pod_add", "pod_stop", "pod_remove", "pod_list":
 		var c []Container
 		cmds := strings.Split(cmd, " ")
 		var pod = Pod{name, image, count, cores, memory, disk, cmds, c}
-		_ = pods(action, pod)
+		r := pods(action, pod)
+		fmt.Println(r)
 	default:
 		fmt.Println("unknown action " + action)
 		panic(actions)

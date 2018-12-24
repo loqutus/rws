@@ -8,6 +8,7 @@ docker push loqutus/rws
 docker container prune -f
 docker-compose  -f docker-compose-etcd.yml down --remove-orphans
 docker-compose  -f docker-compose-etcd.yml up -d
+sleep 10
 export ETCD_UNSUPPORTED_ARCH=arm
 etcdctl mkdir /rws
 etcdctl mkdir /rws/hosts
@@ -30,13 +31,13 @@ done
 etcdctl ls /rws/hosts/
 etcdctl ls /rws/storage/
 ./client --action container_run --name test --image "arm32v6/alpine" --cmd "/bin/sleep 60"
+docker ps | grep test
+./client --action container_list
 etcdctl ls /rws/containers/
-sleep 5
 ./client --action container_stop --name test
-docker ps | grep sleep
 ./client --action container_remove --name test
-docker ps -a | grep sleep
-./client --action pod_add --name test --image "arm32v6/alpine" --cmd "/bin/sleep 60"
+./client --action pod_add --name test_pod --image "arm32v6/alpine" --cmd "/bin/sleep 60"
+etcdctl ls /rws/pods/
 ./client --action pod_list
 #for i in $(seq 1 5); do
 #    ssh pi$i docker-compose down
