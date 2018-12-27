@@ -131,7 +131,7 @@ func EtcdListDir(name string) (etcdClient.Nodes, error) {
 }
 
 func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("storage upload")
+	fmt.Println("StorageDownloadHandler: storage upload")
 	PathSplit := strings.Split(r.URL.Path, "/")
 	fileName := PathSplit[len(PathSplit)-1]
 	dir, err := EtcdListDir("/rws/storage")
@@ -139,42 +139,29 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 		Fail("EtcdListDir error", err, w)
 	}
 	for _, file := range dir {
-		if file.Key == fileName {
-			Fail("file already exists", errors.New("File already exists"), w)
+		keySplit := strings.Split(file.Key, "/")
+		keyName := keySplit[len(keySplit)-1]
+		if keyName == fileName {
+			Fail("StorageUploadHandle: file already exists", errors.New("File already exists"), w)
+			return
 		}
 	}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		Fail("request reading error", err, w)
+		Fail("StorageUploadHandle: request reading error", err, w)
 		return
 	}
 	FileSize := len(body)
 	FilePathName := DataDir + "/" + fileName
-	files, err3 := StorageList()
-	if err3 != nil {
-		Fail("storage list error", err3, w)
-		return
-	}
-	var x []File
-	err4 := json.Unmarshal([]byte(files), &x)
-	if err4 != nil {
-		Fail("json.Unmarshal error", err4, w)
-	}
-	for _, file := range x {
-		if file.Name == FilePathName {
-			Fail("file already exists", errors.New("file already exists"), w)
-			return
-		}
-	}
 	di, err2 := disk.Usage("/")
 	if err2 != nil {
-		Fail("disk usage get error", err2, w)
+		Fail("StorageUploadHandle: disk usage get error", err2, w)
 		return
 	}
 	if di.Free > uint64(FileSize) {
 		err3 := ioutil.WriteFile(FilePathName, []byte(body), 0644)
 		if err3 != nil {
-			Fail("file write error", err3, w)
+			Fail("StorageUploadHandle: file write error", err3, w)
 			return
 		}
 		f := File{fileName, LocalHostName, uint64(FileSize), 1}
@@ -184,7 +171,7 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		err8 := EtcdCreateKey("/rws/storage/"+fileName, string(fileBytes))
 		if err8 != nil {
-			Fail("EtcdCreateKey error", err8, w)
+			Fail("StorageUploadHandle: EtcdCreateKey error", err8, w)
 		}
 		fmt.Println("file " + FilePathName + " uploaded")
 		w.WriteHeader(http.StatusOK)
@@ -192,49 +179,49 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		hostsListString, err5 := ListHosts()
 		if err5 != nil {
-			Fail("ListHosts error", err5, w)
+			Fail("StorageUploadHandle: ListHosts error", err5, w)
 			return
 		}
 		var hostsList []Host
 		err4 := json.Unmarshal([]byte(hostsListString), &hostsList)
 		if err4 != nil {
-			fmt.Println("JsonUnmarshal error")
+			fmt.Println("StorageUploadHandle: JsonUnmarshal error")
 			return
 		}
 		for _, host := range hostsList {
 			url := "http://" + host.Name + "/host_info"
 			body, err5 := http.Get(url)
 			if err5 != nil {
-				fmt.Println("get error: " + url)
+				fmt.Println("StorageUploadHandle: get error: " + url)
 				fmt.Println(body)
 				continue
 			}
 			var ThatHost Host
 			json.NewDecoder(body.Body).Decode(&ThatHost)
 			if uint64(FileSize) < ThatHost.Disk {
-				fmt.Println("uploading to " + host.Name)
+				fmt.Println("StorageUploadHandle: uploading to " + host.Name)
 				url := fmt.Sprintf("%s/storage_upload/%s", host.Name, FilePathName)
 				dat, err6 := http.Post(url, "application/octet-stream", r.Body)
 				if err6 != nil {
-					fmt.Println("post error: " + url)
+					fmt.Println("StorageUploadHandle: post error: " + url)
 					fmt.Println(dat)
 					continue
 				}
 			}
 		}
 	}
-	fmt.Println("file upload error")
+	fmt.Println("StorageUploadHandle: file upload error")
 
 }
 
 func StorageDownloadHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("storage download")
+	fmt.Println("StorageDownloadHandler: storage download")
 	PathSplit := strings.Split(r.URL.Path, "/")
 	fileName := PathSplit[len(PathSplit)-1]
 	fmt.Println("filename: " + fileName)
 	dir, err := EtcdListDir("/rws/storage")
 	if err != nil {
-		Fail("EtcdListDir error", err, w)
+		Fail("StorageDownloadHandler: EtcdListDir error", err, w)
 	}
 	found := false
 	for _, f := range dir {
@@ -1311,11 +1298,11 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	s, err := json.Marshal(p)
 	if err != nil {
-		Fail("json.Marshal error", err, w)
+		Fail("PodAddHandler: json.Marshal error", err, w)
 	}
 	err7 := EtcdCreateKey("/rws/pods/"+p.Name, string(s))
 	if err7 != nil {
-		Fail("EtcdSetKey error", err7, w)
+		Fail("PodAddHandler: EtcdSetKey error", err7, w)
 	}
 	fmt.Println("PodAddHandler: all pod containers running")
 	fmt.Println(w, "OK")
@@ -1324,15 +1311,20 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 
 func PodStopHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("PodStopHandler")
+	bodyBytes, err2 := ioutil.ReadAll(r.Body)
+	if err2 != nil {
+		Fail("PodAdHandler: response read error", err2, w)
+		return
+	}
 	var p Pod
-	err := json.NewDecoder(r.Body).Decode(&p)
+	err := json.Unmarshal(bodyBytes, &p)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		Fail("PodAddHandler: json.Unmarshal error", err, w)
 		return
 	}
 	dir, err2 := EtcdListDir("/rws/hosts")
 	if err2 != nil {
-		Fail("EtcdListDir error", err2, w)
+		Fail("PodStopHandler: EtcdListDir error", err2, w)
 		return
 	}
 	for _, c := range p.Containers {
