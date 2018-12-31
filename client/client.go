@@ -12,7 +12,7 @@ import (
 
 const actions = "storage_upload, storage_download, storage_remove, storage_list, storage_list_all, container_run, container_stop, container_list, container_list_all, container_remove, host_add, host_remove, host_list, host_info, pod_add, pod_stop, pod_list, pod_remove"
 
-var HostName string
+var HostName = "http://localhost:8888"
 
 type Container struct {
 	Image  string
@@ -31,7 +31,7 @@ func storageUpload(name string) error {
 		fmt.Println(err1)
 		panic("file read error")
 	}
-	url := fmt.Sprintf("%s/storage_upload/%s", HostName, name)
+	url := HostName + "/storage_upload/" + name
 	body := bytes.NewBuffer(dat)
 	dat2, err2 := http.Post(url, "application/octet-stream", body)
 	if err2 != nil {

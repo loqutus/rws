@@ -1,36 +1,48 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"testing"
 )
 
 func TestStorage(t *testing.T) {
-	fmt.Println("test storage upload")
+	fmt.Println("TestStorage: test storage upload")
+	HostName = "http://localhost:8888"
 	err := storageUpload("test")
 	if err != nil {
 		fmt.Println(err)
-		t.Errorf("storage upload error")
+		t.Errorf("TestStorage: storage upload error")
 	}
-	fmt.Println("test storage download")
+	dat, err := ioutil.ReadFile("data/test")
+	if err != nil {
+		fmt.Println(err)
+		t.Errorf("TestStorage: upload file read error")
+	}
+	if bytes.Compare(dat, []byte("test")) != 0 {
+		fmt.Println(dat)
+		t.Errorf("TestStorage: upload file content error")
+	}
+	fmt.Println("TestStorage: test storage download")
 	err2 := storageDownload("test")
 	if err2 != nil {
 		fmt.Println(err2)
 		t.Errorf("storage download error")
 	}
-	fmt.Println("test storage list")
+	fmt.Println("TestStorage: test storage list")
 	err3 := storageList()
 	if err3 != nil {
 		fmt.Println(err3)
 		t.Errorf("storage list error")
 	}
-	fmt.Println("test storage list all")
+	fmt.Println("TestStorage: test storage list all")
 	err4 := storageListAll()
 	if err4 != nil {
 		fmt.Println(err4)
 		t.Errorf("storage list all error")
 	}
-	fmt.Println("test storage remove")
+	fmt.Println("TestStorage: test storage remove")
 	err5 := storageRemove("test")
 	if err5 != nil {
 		fmt.Println(err5)
@@ -40,15 +52,16 @@ func TestStorage(t *testing.T) {
 
 func TestContainer(t *testing.T) {
 	fmt.Println("test container run")
-	_ = container("container_run", "redis", "redis-test", "/bin/redis")
+	var empty_cmd []string
+	_ = container("container_run", "redis", "redis-test", empty_cmd)
 	fmt.Println("test container list")
-	_ = container("container_list", "redis", "", "")
+	_ = container("container_list", "redis", "", empty_cmd)
 	fmt.Println("test container list all")
-	_ = container("container_list_all", "redis", "", "")
+	_ = container("container_list_all", "redis", "", empty_cmd)
 	fmt.Println("test container stop")
-	_ = container("container_stop", "redis", "redis-test", "")
+	_ = container("container_stop", "redis", "redis-test", empty_cmd)
 	fmt.Println("container_remove")
-	_ = container("container_remove", "redis", "redis-test", "")
+	_ = container("container_remove", "redis", "redis-test", empty_cmd)
 }
 
 func TestHost(t *testing.T) {

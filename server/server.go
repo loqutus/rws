@@ -223,11 +223,18 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 				fmt.Println("StorageUploadHandler: " + fileName + " uploaded")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("OK"))
+				return
 			} else {
 				fmt.Println("StorageUploadHandler: not enough free space on " + host.Name)
 				continue
 			}
 		}
+		fmt.Println("StorageUploadHandler: unable to upload file " + fileName)
+		fmt.Println(http.StatusInternalServerError)
+		w.Write([]byte("StorageUploadHandler: unable to upload file " + fileName))
+		return
 	}
 }
 
@@ -241,9 +248,11 @@ func StorageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	found := false
-	for _, f := range dir {
-		if f.Key == fileName {
+	for _, file := range dir {
+		keyName := getFileNameFromPath(file.Key)
+		if keyName == fileName {
 			found = true
+			break
 		}
 	}
 	if found == false {
@@ -272,22 +281,26 @@ func StorageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 			fail("StorageDownloadHandler: request write error", err2, w)
 			return
 		}
-		fmt.Println("StorageDownloadHandler: file " + fileName + " downloaded")
-		w.Write([]byte("OK"))
 		w.WriteHeader(http.StatusOK)
+		fmt.Println("StorageDownloadHandler: file " + fileName + " downloaded")
 		return
 	} else {
 		url := "http://" + file.Host + "/storage_download/" + file.Name
 		body, err3 := http.Get(url)
 		if err3 != nil {
-			fail("file get error", err3, w)
+			fail("StorageDownloadHandler: file get error", err3, w)
+			return
 		}
 		bodyBytes, err4 := ioutil.ReadAll(body.Body)
 		if err4 != nil {
-			fmt.Println(err4)
-			fail("body read error", err4, w)
+			fail("StorageDownloadHandler: body read error", err4, w)
+			return
 		}
-		w.Write(bodyBytes)
+		_, err6 := w.Write(bodyBytes)
+		if err6 != nil {
+			fail("StorageDownloadHandler: request write error", err6, w)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -297,6 +310,23 @@ func StorageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("StorageRemoveHandler")
 	fileName := getFileNameFromPath(r.URL.Path)
 	fmt.Println("StorageRemoveHandler: " + fileName)
+	dir, err := EtcdListDir("/rws/storage")
+	if err != nil {
+		fail("StorageDownloadHandler: EtcdListDir error", err, w)
+		return
+	}
+	found := false
+	for _, f := range dir {
+		keyName := getFileNameFromPath(f.Key)
+		if keyName == fileName {
+			found = true
+			break
+		}
+	}
+	if found == false {
+		fail("StorageDownloadHandler: file not found", errors.New("file not found"), w)
+		return
+	}
 	fileString, err := EtcdGetKey("/rws/storage/" + fileName)
 	if err != nil {
 		fail("StorageRemoveHandler: EtcdGetKey error", err, w)
@@ -314,6 +344,7 @@ func StorageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 			fail("StorageRemoveHandler: file remove error", err, w)
 			return
 		}
+		fmt.Println("StorageRemoveHandler: file " + fileName + " removed locally")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	} else {
@@ -327,13 +358,14 @@ func StorageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 			fail("StorageRemoveHandler: file remove get error", err3, w)
 			return
 		}
+		fmt.Println("StorageRemoveHandler: file " + fileName + " removed from host " + file.Host)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 		return
 	}
 	err2 := etcdDeleteKey("/rws/storage/" + fileName)
 	if err2 != nil {
-		fail("etcdDeleteKey error", err2, w)
+		fail("StorageRemoveHandler: etcdDeleteKey error", err2, w)
 	}
 	fmt.Println("StorageDeleteHandler: " + fileName + " deleted")
 	return
@@ -342,14 +374,14 @@ func StorageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 func StorageList() (string, error) {
 	filesNodes, err := EtcdListDir("/rws/storage")
 	if err != nil {
-		return "", errors.New("EtcdListDir error")
+		return "", errors.New("StorageList: EtcdListDir error")
 	}
 	var l []File
 	for _, Key := range filesNodes {
 		var x File
 		err := json.Unmarshal([]byte(Key.Value), &x)
 		if err != nil {
-			fmt.Println("json unmarshal error")
+			fmt.Println("StorageList: json unmarshal error")
 			return "", err
 		}
 		l = append(l, x)
@@ -362,53 +394,48 @@ func StorageList() (string, error) {
 }
 
 func StorageListHandler(w http.ResponseWriter, _ *http.Request) {
-	fmt.Println("storage list")
+	fmt.Println("StorageListHandler")
 	s, err := StorageList()
 	if err != nil {
-		fail("StorageList error", err, w)
+		fail("StorageListHandler: StorageList error", err, w)
 		return
 	}
 	_, err2 := w.Write([]byte(s))
 	if err2 != nil {
-		fail("request write error", err2, w)
+		fail("StorageListHandler: request write error", err2, w)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
 }
 
 func StorageFileSizeHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("storage Size")
-	PathSplit := strings.Split(r.URL.Path, "/")
-	fileName := PathSplit[len(PathSplit)-1]
-	fmt.Println("filename: " + fileName)
+	fmt.Println("StorageFileSizeHandler: storage file size")
+	fileName := getFileNameFromPath(r.URL.Path)
+	fmt.Println("StorageFileSizeHandler: " + fileName)
 	found := false
 	dir, err := EtcdListDir("/rws/storage")
 	if err != nil {
-		fail("EtcdListDir error", err, w)
+		fail("StorageFileSizeHandler: EtcdListDir error", err, w)
+		return
 	}
 	for _, Key := range dir {
-		var file File
-		err := json.Unmarshal([]byte(Key.Value), &file)
-		if err != nil {
-			fmt.Println("json unmarshal error")
-			continue
-		}
-		if file.Name == fileName {
+		keyName := getFileNameFromPath(Key.Key)
+		if keyName == fileName {
 			found = true
 		}
 	}
 	if found == false {
-		fail("file not found", err, w)
+		fail("StorageFileSizeHandler: file not found", err, w)
 		return
 	}
 	var f File
 	key, err := EtcdGetKey("/rws/storage/" + fileName)
 	if err != nil {
-		fail("EtcdGetKey error", err, w)
+		fail("StorageFileSizeHandler: EtcdGetKey error", err, w)
 	}
 	err2 := json.Unmarshal([]byte(key), &f)
 	if err2 != nil {
-		fail("json.Unmarshal error", err2, w)
+		fail("StorageFileSizeHandler: json.Unmarshal error", err2, w)
 	}
 	w.Write([]byte(strconv.Itoa(int(f.Size))))
 	w.WriteHeader(http.StatusOK)
@@ -416,33 +443,33 @@ func StorageFileSizeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ListLocalContainers() (string, error) {
-	fmt.Println("list containers")
+	fmt.Println("ListLocalContainers")
 	c := client.WithVersion("1.38")
 	cli, err := client.NewClientWithOpts(c)
 	if err != nil {
-		fmt.Println("client create error")
+		fmt.Println("ListLocalContainers: client create error")
 		fmt.Println(err)
 		return "client create error", err
 	}
 	localContainers, err2 := cli.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err2 != nil {
-		fmt.Println("containerList error")
+		fmt.Println("ListLocalContainers: containerList error")
 		fmt.Println(err2)
 		return "containerList error", err2
 	}
 	if len(localContainers) == 0 {
-		fmt.Println("there is no running containers on this Host")
+		fmt.Println("ListLocalContainers: there is no running containers on this Host")
 		return "{}", nil
 	}
 	var allContainers []Container
 	allContainersString, err3 := ListAllContainers()
 	if err3 != nil {
-		fmt.Println("ListAllContainers error")
+		fmt.Println("ListLocalContainers: ListAllContainers error")
 		return "", err3
 	}
 	err4 := json.Unmarshal([]byte(allContainersString), &allContainers)
 	if err4 != nil {
-		fmt.Println("json unmarshal error")
+		fmt.Println("ListLocalContainers: json unmarshal error")
 		return "", err4
 	}
 	var returnContainers []Container
@@ -450,6 +477,7 @@ func ListLocalContainers() (string, error) {
 		for _, allContainer := range allContainers {
 			if localContainer.ID == allContainer.ID {
 				returnContainers = append(returnContainers, allContainer)
+				break
 			}
 		}
 	}
@@ -463,16 +491,18 @@ func ListLocalContainers() (string, error) {
 }
 
 func ListAllContainers() (string, error) {
+	fmt.Println("ListAllContainers")
 	containersNodes, err := EtcdListDir("/rws/containers")
 	if err != nil {
-		return "", errors.New("EtcdListDir error")
+		fmt.Println("ListAllContainers: EtcdListDir error")
+		return "", err
 	}
 	var l []Container
 	for _, Key := range containersNodes {
 		var x Container
 		err := json.Unmarshal([]byte(Key.Value), &x)
 		if err != nil {
-			fmt.Println("json.Unmarshal error")
+			fmt.Println("ListAllContainers: json.Unmarshal error")
 			return "", err
 		}
 		l = append(l, x)
@@ -542,15 +572,9 @@ func RunContainer(imageName, containerName string, cmd []string) (string, error)
 	}
 	err6 := etcdCreateKey("/rws/containers/"+containerName, string(containerBytes))
 	if err6 != nil {
-		fmt.Println("ContainerStopHandler:: etcdCreateKey error ")
+		fmt.Println("RunContainer: etcdCreateKey error")
 		fmt.Println(err6)
-		to := 5 * time.Second
-		err7 := cli.ContainerStop(ctx, resp.ID, &to)
-		if err7 == nil {
-			_ = cli.ContainerRemove(ctx, resp.ID, types.ContainerRemoveOptions{})
-		}
-		return "", nil
-
+		return "", err6
 	}
 	fmt.Println("RunContainer: container " + resp.ID + " running")
 	return resp.ID, nil
@@ -593,6 +617,7 @@ func GetContainerId(containerName string) (string, error) {
 		keyName := keySplit[len(keySplit)-1]
 		if keyName == containerName {
 			found = true
+			break
 		}
 	}
 	if found == false {
@@ -611,10 +636,10 @@ func GetContainerId(containerName string) (string, error) {
 }
 
 func RemoveContainer(containerName string) error {
-	fmt.Println("remove container")
+	fmt.Println("RemoveContainer")
 	ContainerID, err := GetContainerId(containerName)
 	if err != nil {
-		fmt.Println("get container id error")
+		fmt.Println("RemoveContainer: GetContainerId error")
 		fmt.Println(err)
 		return err
 	}
@@ -629,10 +654,11 @@ func RemoveContainer(containerName string) error {
 	opts := types.ContainerRemoveOptions{RemoveVolumes: false, RemoveLinks: false, Force: false}
 	err2 := cli.ContainerRemove(ctx, ContainerID, opts)
 	if err2 != nil {
-		fmt.Println("container remove error:")
+		fmt.Println("RemoveContainer: container remove error:")
 		fmt.Println(err2)
 		return err2
 	}
+	fmt.Println("RemoveContainer: Container + " ContainerID + " removed")
 	return nil
 }
 
@@ -695,8 +721,7 @@ func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 	var cont Container
 	found := false
 	for _, k := range dir {
-		keySplit := strings.Split(k.Key, "/")
-		keyName := keySplit[len(keySplit)-1]
+		keyName := getFileNameFromPath(k.Key)
 		if keyName == c.Name {
 			found = true
 			contString, err5 := EtcdGetKey(k.Key)
@@ -741,7 +766,7 @@ func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	fmt.Println("ContainerStopHandler: container " + c.ID)
+	fmt.Println("ContainerStopHandler: container " + c.ID + " stopped")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 	return
@@ -756,7 +781,7 @@ func ContainerRemoveHandler(w http.ResponseWriter, r *http.Request) {
 	var c Container
 	err := json.Unmarshal(bodyBytes, &c)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		fail("ContainerRemovehandler: json.Unmarshal error", err, w)
 		return
 	}
 	dir, err4 := EtcdListDir("/rws/containers")
@@ -773,11 +798,11 @@ func ContainerRemoveHandler(w http.ResponseWriter, r *http.Request) {
 			found = true
 			contString, err5 := EtcdGetKey(k.Key)
 			if err5 != nil {
-				fail("ContainerStopHandler: EtcdGetKey error", err5, w)
+				fail("ContainerRemoveHandler: EtcdGetKey error", err5, w)
 			}
 			err6 := json.Unmarshal([]byte(contString), &cont)
 			if err6 != nil {
-				fail("ContainerStopHandler: json.Unmarshal error", err6, w)
+				fail("ContainerRemove¡Handler: json.Unmarshal error", err6, w)
 			}
 		}
 	}

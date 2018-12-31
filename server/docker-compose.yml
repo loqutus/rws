@@ -7,3 +7,4 @@ services:
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
       - "/etc/hostname:/etc/hostname"
+      - "/data:/home/rusik/go/src/github.com/loqutus/rws/server/data"
