@@ -15,7 +15,7 @@ func TestStorage(t *testing.T) {
 		fmt.Println(err)
 		t.Errorf("TestStorage: storage upload error")
 	}
-	dat, err := ioutil.ReadFile("data/test")
+	dat, err := ioutil.ReadFile("test")
 	if err != nil {
 		fmt.Println(err)
 		t.Errorf("TestStorage: upload file read error")

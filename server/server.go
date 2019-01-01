@@ -658,7 +658,7 @@ func RemoveContainer(containerName string) error {
 		fmt.Println(err2)
 		return err2
 	}
-	fmt.Println("RemoveContainer: Container + " ContainerID + " removed")
+	fmt.Println("RemoveContainer: Container " + ContainerID + " removed")
 	return nil
 }
 
