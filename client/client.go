@@ -114,7 +114,7 @@ func storageHelp() {
 }
 
 func storageListAll() error {
-	url := fmt.Sprintf("%s/storage_list_all", HostName)
+	url := HostName + "/storage_list_all"
 	dat, err1 := http.Get(url)
 	if err1 != nil {
 		panic("get error")
@@ -210,7 +210,7 @@ func container(action, image, name string, cmd []string) string {
 	}
 	buf := bytes.NewBuffer(b)
 	switch action {
-	case "container_list", "container_run", "container_stop", "container_remove", "container_list_all":
+	case "container_list", "container_run", "container_stop", "container_remove", "container_list_local":
 		resp, err = req(action, buf)
 	default:
 		panic("unknown action")
@@ -304,7 +304,7 @@ func main() {
 		} else {
 			panic("file name required")
 		}
-	case "container_run", "container_stop", "container_list", "container_list_all", "container_remove":
+	case "container_run", "container_stop", "container_list", "container_list_local", "container_remove":
 		cmds := strings.Split(cmd, " ")
 		r := container(action, image, name, cmds)
 		fmt.Println(r)

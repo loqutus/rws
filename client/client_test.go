@@ -36,12 +36,6 @@ func TestStorage(t *testing.T) {
 		fmt.Println(err3)
 		t.Errorf("storage list error")
 	}
-	fmt.Println("TestStorage: test storage list all")
-	err4 := storageListAll()
-	if err4 != nil {
-		fmt.Println(err4)
-		t.Errorf("storage list all error")
-	}
 	fmt.Println("TestStorage: test storage remove")
 	err5 := storageRemove("test")
 	if err5 != nil {
@@ -52,16 +46,16 @@ func TestStorage(t *testing.T) {
 
 func TestContainer(t *testing.T) {
 	fmt.Println("test container run")
-	var empty_cmd []string
-	_ = container("container_run", "redis", "redis-test", empty_cmd)
+	cmd := []string{"/bin/sleep", "60"}
+	_ = container("container_run", "arm32v6/alpine", "test", cmd)
 	fmt.Println("test container list")
-	_ = container("container_list", "redis", "", empty_cmd)
-	fmt.Println("test container list all")
-	_ = container("container_list_all", "redis", "", empty_cmd)
+	_ = container("container_list", "", "", cmd)
+	fmt.Println("test container list local")
+	_ = container("container_list_local", "", "", cmd)
 	fmt.Println("test container stop")
-	_ = container("container_stop", "redis", "redis-test", empty_cmd)
+	_ = container("container_stop", "", "test", cmd)
 	fmt.Println("container_remove")
-	_ = container("container_remove", "redis", "redis-test", empty_cmd)
+	_ = container("container_remove", "", "test", cmd)
 }
 
 func TestHost(t *testing.T) {
