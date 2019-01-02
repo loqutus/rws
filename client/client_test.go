@@ -20,7 +20,7 @@ func TestStorage(t *testing.T) {
 		fmt.Println(err)
 		t.Errorf("TestStorage: upload file read error")
 	}
-	if bytes.Compare(dat, []byte("test")) != 0 {
+	if bytes.Compare(dat, []byte("test\n")) != 0 {
 		fmt.Println(dat)
 		t.Errorf("TestStorage: upload file content error")
 	}
