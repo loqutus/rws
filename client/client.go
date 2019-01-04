@@ -25,7 +25,7 @@ type Container struct {
 	Cmd    []string
 }
 
-func storageUpload(name string) error {
+func storageUpload(name string) (string, error) {
 	dat, err1 := ioutil.ReadFile(name)
 	if err1 != nil {
 		fmt.Println(err1)
@@ -43,10 +43,15 @@ func storageUpload(name string) error {
 		fmt.Println(err2)
 		panic("status code error")
 	}
-	return nil
+	bodyBytes, err2 := ioutil.ReadAll(dat2.Body)
+	if err2 != nil {
+		fmt.Println(err2)
+		panic("body read error")
+	}
+	return string(bodyBytes), nil
 }
 
-func storageDownload(name string) error {
+func storageDownload(name string) (string, error) {
 	url := fmt.Sprintf("%s/storage_download/%s", HostName, name)
 	dat, err1 := http.Get(url)
 	if err1 != nil {
@@ -67,10 +72,10 @@ func storageDownload(name string) error {
 		fmt.Println(err3)
 		panic("file write error")
 	}
-	return nil
+	return "OK", nil
 }
 
-func storageRemove(name string) error {
+func storageRemove(name string) (string, error) {
 	url := fmt.Sprintf("%s/storage_remove/%s", HostName, name)
 	dat, err1 := http.Get(url)
 	if err1 != nil {
@@ -87,10 +92,10 @@ func storageRemove(name string) error {
 		panic("body read error")
 	}
 	print(string(bodyBytes))
-	return nil
+	return "OK", nil
 }
 
-func storageList() error {
+func storageList() (string, error) {
 	url := fmt.Sprintf("%s/storage_list", HostName)
 	dat, err1 := http.Get(url)
 	if err1 != nil {
@@ -105,15 +110,14 @@ func storageList() error {
 		fmt.Println(err2)
 		panic("body read error")
 	}
-	fmt.Println(string(bodyBytes))
-	return nil
+	return string(bodyBytes), nil
 }
 
 func storageHelp() {
 	fmt.Println("upload, download, list or list_all")
 }
 
-func storageListAll() error {
+func storageListAll() (string, error) {
 	url := HostName + "/storage_list_all"
 	dat, err1 := http.Get(url)
 	if err1 != nil {
@@ -123,12 +127,19 @@ func storageListAll() error {
 		fmt.Println(dat.StatusCode)
 		panic("status code error")
 	}
-	_, err2 := ioutil.ReadAll(dat.Body)
+	bodyBytes, err2 := ioutil.ReadAll(dat.Body)
 	if err2 != nil {
 		fmt.Println(err2)
 		panic("body read error")
 	}
-	return nil
+	return string(bodyBytes), nil
+}
+
+type File struct {
+	Name     string
+	Host     string
+	Size     uint64
+	Replicas uint64
 }
 
 func storage(action, name string) {
@@ -140,35 +151,45 @@ func storage(action, name string) {
 	case "help":
 		storageHelp()
 	case "storage_upload":
-		err := storageUpload(name)
+		s, err := storageUpload(name)
 		if err != nil {
+			fmt.Println(s)
 			fmt.Println(err)
 			panic("storage upload failed")
 		}
+		fmt.Println(s)
 	case "storage_download":
-		err := storageDownload(name)
+		s, err := storageDownload(name)
 		if err != nil {
+			fmt.Println(s)
 			fmt.Println(err)
 			panic("storage download failed")
 		}
+		fmt.Println(s)
 	case "storage_list":
-		err := storageList()
+		s, err := storageList()
 		if err != nil {
+			fmt.Println(s)
 			fmt.Println(err)
 			panic("storage list failure")
 		}
+		fmt.Println(s)
 	case "storage_list_all":
-		err := storageListAll()
+		s, err := storageListAll()
 		if err != nil {
+			fmt.Println(s)
 			fmt.Println(err)
 			panic("storage list all failed")
 		}
+		fmt.Println(s)
 	case "storage_remove":
-		err := storageRemove("name")
+		s, err := storageRemove("name")
 		if err != nil {
+			fmt.Println(s)
 			fmt.Println(err)
 			panic("storage remove failed")
 		}
+		fmt.Println(s)
 	}
 }
 
