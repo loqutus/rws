@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
+	"golang.org/x/net/context"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -76,16 +79,93 @@ func TestStorage(t *testing.T) {
 	}
 }
 
+func ListLocalContainers() ([]types.Container, error) {
+	c := client.WithVersion("1.38")
+	cli, err := client.NewClientWithOpts(c)
+	if err != nil {
+		fmt.Println("ListLocalContainers: client create error")
+		fmt.Println(err)
+		return nil, err
+	}
+	localContainers, err2 := cli.ContainerList(context.Background(), types.ContainerListOptions{})
+	if err2 != nil {
+		fmt.Println("ListLocalContainers: containerList error")
+		fmt.Println(err2)
+		return nil, err2
+	}
+	return localContainers, nil
+}
+
 func TestContainer(t *testing.T) {
 	fmt.Println("test container run")
 	cmd := []string{"/bin/sleep", "60"}
-	_ = container("container_run", "arm32v6/alpine", "test", cmd)
+	containerID := container("container_run", "arm32v6/alpine", "test", cmd)
+	localContainers1, err := ListLocalContainers()
+	if err != nil {
+		panic(err)
+	}
+	found := false
+	for _, localContainer := range localContainers1 {
+		if localContainer.ID == containerID {
+			found = true
+			break
+		}
+	}
+	if found != true {
+		panic("container is not running")
+	}
 	fmt.Println("test container list")
-	_ = container("container_list", "", "", cmd)
+	allContainersString := container("container_list", "", "", cmd)
+	var allContainers []Container
+	err2 := json.Unmarshal([]byte(allContainersString), &allContainers)
+	if err2 != nil {
+		panic("json.Unmarshal error")
+	}
+	found = false
+	for _, allContainer := range allContainers {
+		if allContainer.ID == containerID {
+			found = true
+			break
+		}
+	}
+	if found != true {
+		panic("container is not found in all containers list")
+	}
 	fmt.Println("test container list local")
-	_ = container("container_list_local", "", "", cmd)
+	localContainersString := container("container_list_local", "", "", cmd)
+	var localContainers []Container
+	err3 := json.Unmarshal([]byte(localContainersString), &localContainers)
+	if err3 != nil {
+		panic("json.Unmarshal error")
+	}
+	found = false
+	for _, localContainer := range localContainers {
+		if localContainer.ID == containerID {
+			found = true
+			break
+		}
+	}
+	if found != true {
+		panic("container is not found in all containers list")
+	}
 	fmt.Println("test container stop")
 	_ = container("container_stop", "", "test", cmd)
+	localContainersString = container("container_list_local", "", "", cmd)
+	localContainers = []Container{}
+	err4 := json.Unmarshal([]byte(localContainersString), &localContainers)
+	if err4 != nil {
+		panic("json.Unmarshal error")
+	}
+	found = false
+	for _, localContainer := range localContainers {
+		if localContainer.ID == containerID {
+			found = true
+			break
+		}
+	}
+	if found == true {
+		panic("container found in local containers list")
+	}
 	fmt.Println("container_remove")
 	_ = container("container_remove", "", "test", cmd)
 }
