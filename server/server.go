@@ -901,7 +901,7 @@ func HostAddHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func RemoveHost(hostName string) error {
-	fmt.Println("remove Host")
+	fmt.Println("RemoveHost")
 	dir, err := EtcdListDir("/rws/hosts")
 	if err != nil {
 		return err
@@ -914,7 +914,7 @@ func RemoveHost(hostName string) error {
 		}
 	}
 	if found == false {
-		return errors.New("host not found")
+		return errors.New("RemoveHost: host not found")
 	} else {
 		err2 := etcdDeleteKey("/rws/hosts/" + hostName)
 		if err2 != nil {
@@ -926,12 +926,14 @@ func RemoveHost(hostName string) error {
 
 func HostRemoveHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("HostRemoveHandler")
+	bodyBytes, err3 := ioutil.ReadAll(r.Body)
+	if err3 != nil {
+		fail("HostRemoveHandler: response read error", err3, w)
+	}
 	var h Host
-	err := json.NewDecoder(r.Body).Decode(&h)
+	err := json.Unmarshal(bodyBytes, &h)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		fmt.Println(err.Error())
+		fail("HostRemoveHandler: json.Unmarshal error", err, w)
 		return
 	}
 	err2 := RemoveHost(h.Name)
@@ -939,8 +941,8 @@ func HostRemoveHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
 	} else {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, err2.Error())
+		fail("HostRemoveHandler: RemoveHost error", err2, w)
+		return
 	}
 }
 

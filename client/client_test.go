@@ -12,6 +12,14 @@ import (
 	"testing"
 )
 
+func TestHosts(t *testing.T) {
+	fmt.Println("TestHosts: add hosts")
+	for i := 1; i <= 5; i++ {
+		s := fmt.Sprintf("10.0.0.%d", i)
+		hosts("host_add", s, "8888")
+	}
+}
+
 func TestStorage(t *testing.T) {
 	fmt.Println("TestStorage: test storage upload")
 	HostName = "http://localhost:8888"
@@ -170,15 +178,6 @@ func TestContainer(t *testing.T) {
 	_ = container("container_remove", "", "test", cmd)
 }
 
-func TestHost(t *testing.T) {
-	fmt.Println("test host add")
-	_ = hosts("host_add", "localhost", "9999")
-	fmt.Println("test host list")
-	_ = hosts("host_list", "", "")
-	fmt.Println("test host remove")
-	_ = hosts("host_remove", "localhost", "9999")
-}
-
 func TestHostInfo(t *testing.T) {
 	fmt.Println("test host info")
 	_ = hosts("host_info", "", "")
@@ -186,9 +185,17 @@ func TestHostInfo(t *testing.T) {
 
 func TestPod(t *testing.T) {
 	fmt.Println("test Pod add")
-	_ = pods("pod_add", Pod{})
+	cmd := []string{"/bin/sleep", "60"}
+	_ = pods("pod_add", Pod{"pod-test", "arm32v6/alpine", 1, 1, 1, 1, cmd, []Container{}})
 	fmt.Println("test Pod list")
 	_ = pods("pod_list", Pod{})
 	fmt.Println("test Pod remove")
 	_ = pods("pod_remove", Pod{})
+}
+
+func TestHost(t *testing.T) {
+	fmt.Println("test host list")
+	_ = hosts("host_list", "", "")
+	fmt.Println("test host remove")
+	_ = hosts("host_remove", "10.0.0.1", "8888")
 }
