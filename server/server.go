@@ -16,6 +16,7 @@ import (
 	"golang.org/x/net/context"
 	"html/template"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -25,9 +26,10 @@ import (
 
 const addr = "0.0.0.0:8888"
 const DataDir = "data"
-const EtcdHost = "http://10.0.0.1:2379"
+const EtcdHost = "http://etcd:2379"
 
-var LocalHostName string
+const LocalHostName = "localhost:8888"
+
 var LocalIPPrefix = "10.0.0."
 var LocalPort = "8888"
 
@@ -83,8 +85,8 @@ func getFileNameFromPath(p string) string {
 }
 
 func fail(str string, err error, w http.ResponseWriter) {
-	fmt.Println(str)
-	fmt.Println(err.Error())
+	log.Println(1, str)
+	log.Println(1, err.Error())
 	w.WriteHeader(http.StatusInternalServerError)
 	w.Write([]byte(str))
 	w.Write([]byte(err.Error()))
@@ -137,9 +139,9 @@ func EtcdListDir(name string) (etcdClient.Nodes, error) {
 }
 
 func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("StorageUploadHandler")
+	log.Println(1, "StorageUploadHandler")
 	fileName := getFileNameFromPath(r.URL.Path)
-	fmt.Println("StorageUploadHandler: " + fileName)
+	log.Println(1, "StorageUploadHandler: "+fileName)
 	dir, err := EtcdListDir("/rws/storage")
 	if err != nil {
 		fail("StorageUploadHandler: EtcdListDir error", err, w)
@@ -180,7 +182,7 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 			fail("StorageUploadHandler: etcdCreateKey error", err8, w)
 			return
 		}
-		fmt.Println("StorageUploadHandler: file " + FilePathName + " uploaded")
+		log.Println(1, "StorageUploadHandler: file "+FilePathName+" uploaded")
 		w.WriteHeader(http.StatusOK)
 		return
 	} else {
@@ -192,14 +194,14 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 		var hostsList []Host
 		err4 := json.Unmarshal([]byte(hostsListString), &hostsList)
 		if err4 != nil {
-			fmt.Println("StorageUploadHandler: JsonUnmarshal error")
+			fail("StorageUploadHandler: JsonUnmarshal error", err4, w)
 			return
 		}
 		for _, host := range hostsList {
 			url := "http://" + host.Name + "/host_info"
 			body2, err5 := http.Get(url)
 			if err5 != nil {
-				fmt.Println("StorageUploadHandler: get error", err5, w)
+				fail("StorageUploadHandler: get error", err5, w)
 				continue
 			}
 			bodyBytes, err := ioutil.ReadAll(body2.Body)
@@ -214,34 +216,34 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if uint64(FileSize) < thatHost.Disk {
-				fmt.Println("StorageUploadHandler: uploading to " + host.Name)
+				log.Println(1, "StorageUploadHandler: uploading to "+host.Name)
 				url := fmt.Sprintf("%s/storage_upload/%s", host.Name, FilePathName)
 				dat, err6 := http.Post(url, "application/octet-stream", r.Body)
 				if err6 != nil {
-					fmt.Println("StorageUploadHandle: post error: " + url)
-					fmt.Println(dat)
+					log.Println("StorageUploadHandle: post error: " + url)
+					log.Println(dat)
 					continue
 				}
-				fmt.Println("StorageUploadHandler: " + fileName + " uploaded")
+				log.Println(1, "StorageUploadHandler: "+fileName+" uploaded")
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("OK"))
 				return
 			} else {
-				fmt.Println("StorageUploadHandler: not enough free space on " + host.Name)
+				log.Println(1, "StorageUploadHandler: not enough free space on "+host.Name)
 				continue
 			}
 		}
-		fmt.Println("StorageUploadHandler: unable to upload file " + fileName)
-		fmt.Println(http.StatusInternalServerError)
+		log.Println(1, "StorageUploadHandler: unable to upload file "+fileName)
+		log.Println(1, http.StatusInternalServerError)
 		w.Write([]byte("StorageUploadHandler: unable to upload file " + fileName))
 		return
 	}
 }
 
 func StorageDownloadHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("StorageDownloadHandler")
+	log.Println(1, "StorageDownloadHandler")
 	fileName := getFileNameFromPath(r.URL.Path)
-	fmt.Println("StorageDownloadHandler: " + fileName)
+	log.Println(1, "StorageDownloadHandler: "+fileName)
 	dir, err := EtcdListDir("/rws/storage")
 	if err != nil {
 		fail("StorageDownloadHandler: EtcdListDir error", err, w)
@@ -282,7 +284,7 @@ func StorageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		fmt.Println("StorageDownloadHandler: file " + fileName + " downloaded")
+		log.Println(1, "StorageDownloadHandler: file "+fileName+" downloaded")
 		return
 	} else {
 		url := "http://" + file.Host + "/storage_download/" + file.Name
@@ -307,9 +309,9 @@ func StorageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func StorageRemoveHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("StorageRemoveHandler")
+	log.Println(1, "StorageRemoveHandler")
 	fileName := getFileNameFromPath(r.URL.Path)
-	fmt.Println("StorageRemoveHandler: " + fileName)
+	log.Println(1, "StorageRemoveHandler: "+fileName)
 	dir, err := EtcdListDir("/rws/storage")
 	if err != nil {
 		fail("StorageDownloadHandler: EtcdListDir error", err, w)
@@ -344,7 +346,7 @@ func StorageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 			fail("StorageRemoveHandler: file remove error", err, w)
 			return
 		}
-		fmt.Println("StorageRemoveHandler: file " + fileName + " removed locally")
+		log.Println(1, "StorageRemoveHandler: file "+fileName+" removed locally")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	} else {
@@ -358,7 +360,7 @@ func StorageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 			fail("StorageRemoveHandler: file remove get error", err3, w)
 			return
 		}
-		fmt.Println("StorageRemoveHandler: file " + fileName + " removed from host " + file.Host)
+		log.Println(1, "StorageRemoveHandler: file "+fileName+" removed from host "+file.Host)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 		return
@@ -367,7 +369,7 @@ func StorageRemoveHandler(w http.ResponseWriter, r *http.Request) {
 	if err2 != nil {
 		fail("StorageRemoveHandler: etcdDeleteKey error", err2, w)
 	}
-	fmt.Println("StorageDeleteHandler: " + fileName + " deleted")
+	log.Println(1, "StorageDeleteHandler: "+fileName+" deleted")
 	return
 }
 
@@ -381,7 +383,7 @@ func StorageList() (string, error) {
 		var x File
 		err := json.Unmarshal([]byte(Key.Value), &x)
 		if err != nil {
-			fmt.Println("StorageList: json unmarshal error")
+			log.Println(1, "StorageList: json unmarshal error")
 			return "", err
 		}
 		l = append(l, x)
@@ -394,7 +396,7 @@ func StorageList() (string, error) {
 }
 
 func StorageListHandler(w http.ResponseWriter, _ *http.Request) {
-	fmt.Println("StorageListHandler")
+	log.Println(1, "StorageListHandler")
 	s, err := StorageList()
 	if err != nil {
 		fail("StorageListHandler: StorageList error", err, w)
@@ -409,9 +411,9 @@ func StorageListHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func StorageFileSizeHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("StorageFileSizeHandler: storage file size")
+	log.Println(1, "StorageFileSizeHandler: storage file size")
 	fileName := getFileNameFromPath(r.URL.Path)
-	fmt.Println("StorageFileSizeHandler: " + fileName)
+	log.Println(1, "StorageFileSizeHandler: "+fileName)
 	found := false
 	dir, err := EtcdListDir("/rws/storage")
 	if err != nil {
@@ -443,33 +445,33 @@ func StorageFileSizeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ListLocalContainers() (string, error) {
-	fmt.Println("ListLocalContainers")
+	log.Println(1, "ListLocalContainers")
 	c := client.WithVersion("1.38")
 	cli, err := client.NewClientWithOpts(c)
 	if err != nil {
-		fmt.Println("ListLocalContainers: client create error")
-		fmt.Println(err)
+		log.Println(1, "ListLocalContainers: client create error")
+		log.Println(1, err)
 		return "client create error", err
 	}
 	localContainers, err2 := cli.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err2 != nil {
-		fmt.Println("ListLocalContainers: containerList error")
-		fmt.Println(err2)
+		log.Println(1, "ListLocalContainers: containerList error")
+		log.Println(1, err2)
 		return "containerList error", err2
 	}
 	if len(localContainers) == 0 {
-		fmt.Println("ListLocalContainers: there is no running containers on this Host")
+		log.Println(1, "ListLocalContainers: there is no running containers on this Host")
 		return "{}", nil
 	}
 	var allContainers []Container
 	allContainersString, err3 := ListAllContainers()
 	if err3 != nil {
-		fmt.Println("ListLocalContainers: ListAllContainers error")
+		log.Println(1, "ListLocalContainers: ListAllContainers error")
 		return "", err3
 	}
 	err4 := json.Unmarshal([]byte(allContainersString), &allContainers)
 	if err4 != nil {
-		fmt.Println("ListLocalContainers: json unmarshal error")
+		log.Println(1, "ListLocalContainers: json unmarshal error")
 		return "", err4
 	}
 	var returnContainers []Container
@@ -483,18 +485,18 @@ func ListLocalContainers() (string, error) {
 	}
 	b, err3 := json.Marshal(returnContainers)
 	if err3 != nil {
-		fmt.Println("json marshal error")
-		fmt.Println(err3)
+		log.Println(1, "json marshal error")
+		log.Println(1, err3)
 		return "json marshal error", err3
 	}
 	return string(b), nil
 }
 
 func ListAllContainers() (string, error) {
-	fmt.Println("ListAllContainers")
+	log.Println(1, "ListAllContainers")
 	containersNodes, err := EtcdListDir("/rws/containers")
 	if err != nil {
-		fmt.Println("ListAllContainers: EtcdListDir error")
+		log.Println(1, "ListAllContainers: EtcdListDir error")
 		return "", err
 	}
 	var l []Container
@@ -502,7 +504,7 @@ func ListAllContainers() (string, error) {
 		var x Container
 		err := json.Unmarshal([]byte(Key.Value), &x)
 		if err != nil {
-			fmt.Println("ListAllContainers: json.Unmarshal error")
+			log.Println(1, "ListAllContainers: json.Unmarshal error")
 			return "", err
 		}
 		l = append(l, x)
@@ -533,20 +535,20 @@ func ContainerListLocalHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func RunContainer(imageName, containerName string, cmd []string) (string, error) {
-	fmt.Println("RunContainer")
+	log.Println(1, "RunContainer")
 	ctx := context.Background()
 	c := client.WithVersion("1.38")
 	cli, err := client.NewClientWithOpts(c)
 	if err != nil {
-		fmt.Println("RunContainer: client create error")
-		fmt.Println(err)
+		log.Println(1, "RunContainer: client create error")
+		log.Println(1, err)
 		return "", err
 	}
 	out, err2 := cli.ImagePull(ctx, imageName, types.ImagePullOptions{})
 	if err2 != nil {
-		fmt.Println("RunContainer: image pull error")
-		fmt.Println(out)
-		fmt.Println(err2)
+		log.Println(1, "RunContainer: image pull error")
+		log.Println(1, out)
+		log.Println(1, err2)
 		return "", err2
 	}
 	resp, err3 := cli.ContainerCreate(ctx, &container.Config{
@@ -554,15 +556,15 @@ func RunContainer(imageName, containerName string, cmd []string) (string, error)
 		Cmd:   cmd,
 	}, nil, nil, containerName)
 	if err3 != nil {
-		fmt.Println("RunContainer: container create error")
-		fmt.Println(resp)
-		fmt.Println(err3)
+		log.Println(1, "RunContainer: container create error")
+		log.Println(1, resp)
+		log.Println(1, err3)
 		return "", err3
 	}
 	err4 := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
 	if err4 != nil {
-		fmt.Println("RunContainer: container start error")
-		fmt.Println(err4)
+		log.Println(1, "RunContainer: container start error")
+		log.Println(1, err4)
 		return "", err4
 	}
 	cont := Container{Name: containerName, Image: imageName, Host: LocalHostName, ID: resp.ID}
@@ -572,41 +574,41 @@ func RunContainer(imageName, containerName string, cmd []string) (string, error)
 	}
 	err6 := etcdCreateKey("/rws/containers/"+containerName, string(containerBytes))
 	if err6 != nil {
-		fmt.Println("RunContainer: etcdCreateKey error")
-		fmt.Println(err6)
+		log.Println(1, "RunContainer: etcdCreateKey error")
+		log.Println(1, err6)
 		return "", err6
 	}
-	fmt.Println("RunContainer: container " + resp.ID + " running")
+	log.Println(1, "RunContainer: container "+resp.ID+" running")
 	return resp.ID, nil
 }
 
 func StopContainer(containerName string) error {
-	fmt.Println("StopContainer")
+	log.Println(1, "StopContainer")
 	ctx := context.Background()
 	c := client.WithVersion("1.38")
 	cli, err1 := client.NewClientWithOpts(c)
 	if err1 != nil {
-		fmt.Println("StopContainer: NewClientWithOpts error")
-		fmt.Println(err1)
+		log.Println(1, "StopContainer: NewClientWithOpts error")
+		log.Println(1, err1)
 		return err1
 	}
 	ContainerId, err := GetContainerId(containerName)
 	if err != nil {
-		fmt.Println("StopContainer: ContainerId error")
-		fmt.Println(err)
+		log.Println(1, "StopContainer: ContainerId error")
+		log.Println(1, err)
 		return err
 	}
 	err2 := cli.ContainerStop(ctx, ContainerId, nil)
 	if err2 != nil {
-		fmt.Println("StopContainer: ContainerStop error")
-		fmt.Println(err2)
+		log.Println(1, "StopContainer: ContainerStop error")
+		log.Println(1, err2)
 		return err2
 	}
 	return nil
 }
 
 func GetContainerId(containerName string) (string, error) {
-	fmt.Println("GetContainerId")
+	log.Println(1, "GetContainerId")
 	dir, err := EtcdListDir("/rws/containers/")
 	if err != nil {
 		return "", err
@@ -636,34 +638,34 @@ func GetContainerId(containerName string) (string, error) {
 }
 
 func RemoveContainer(containerName string) error {
-	fmt.Println("RemoveContainer")
+	log.Println(1, "RemoveContainer")
 	ContainerID, err := GetContainerId(containerName)
 	if err != nil {
-		fmt.Println("RemoveContainer: GetContainerId error")
-		fmt.Println(err)
+		log.Println(1, "RemoveContainer: GetContainerId error")
+		log.Println(1, err)
 		return err
 	}
 	ctx := context.Background()
 	c := client.WithVersion("1.38")
 	cli, err1 := client.NewClientWithOpts(c)
 	if err1 != nil {
-		fmt.Println("client create error:")
-		fmt.Println(err1)
+		log.Println(1, "client create error:")
+		log.Println(1, err1)
 		return err1
 	}
 	opts := types.ContainerRemoveOptions{RemoveVolumes: false, RemoveLinks: false, Force: false}
 	err2 := cli.ContainerRemove(ctx, ContainerID, opts)
 	if err2 != nil {
-		fmt.Println("RemoveContainer: container remove error:")
-		fmt.Println(err2)
+		log.Println(1, "RemoveContainer: container remove error:")
+		log.Println(1, err2)
 		return err2
 	}
-	fmt.Println("RemoveContainer: Container " + ContainerID + " removed")
+	log.Println(1, "RemoveContainer: Container "+ContainerID+" removed")
 	return nil
 }
 
 func ContainerRunHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("ContainerRunHandler")
+	log.Println(1, "ContainerRunHandler")
 	bodyBytes, err2 := ioutil.ReadAll(r.Body)
 	if err2 != nil {
 		fail("ContainerRunHandler: response read error", err2, w)
@@ -701,7 +703,7 @@ func ContainerRunHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("ContainerStopHandler")
+	log.Println(1, "ContainerStopHandler")
 	bodyBytes, err2 := ioutil.ReadAll(r.Body)
 	if err2 != nil {
 		fail("ContainerStopHandler: response read error", err2, w)
@@ -766,14 +768,14 @@ func ContainerStopHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	fmt.Println("ContainerStopHandler: container " + c.ID + " stopped")
+	log.Println(1, "ContainerStopHandler: container "+c.ID+" stopped")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 	return
 }
 
 func ContainerRemoveHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("ContainerRemoveHandler")
+	log.Println(1, "ContainerRemoveHandler")
 	bodyBytes, err2 := ioutil.ReadAll(r.Body)
 	if err2 != nil {
 		fail("ContainerRemoveHandler: response read error", err2, w)
@@ -822,7 +824,7 @@ func ContainerRemoveHandler(w http.ResponseWriter, r *http.Request) {
 		url := "http://" + cont.Host + "/container_remove/" + cont.Name
 		b, err2 := json.Marshal(c)
 		if err2 != nil {
-			fmt.Println(err2)
+			log.Println(1, err2)
 			panic("json Marshal error")
 		}
 		buf := bytes.NewBuffer(b)
@@ -843,14 +845,16 @@ func ContainerRemoveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func AddHost(hostName string) error {
-	fmt.Println("Host add")
+	log.Println(1, "Host add")
 	dir, err := EtcdListDir("/rws/hosts")
 	if err != nil {
 		return err
 	}
 	found := false
 	for _, node := range dir {
-		if hostName == node.Key {
+		keySplit := strings.Split(node.Key, "/")
+		keyName := keySplit[len(keySplit)-1]
+		if hostName == keyName {
 			found = true
 			break
 		}
@@ -860,12 +864,12 @@ func AddHost(hostName string) error {
 	}
 	HostInfo, err3 := GetHostInfo(hostName)
 	if err3 != nil {
-		fmt.Println("AddHost: host info get error")
+		log.Println(1, "AddHost: host info get error")
 		return err3
 	}
 	b, err4 := json.Marshal(HostInfo)
 	if err4 != nil {
-		fmt.Println("AddHost: host info json marshal error")
+		log.Println(1, "AddHost: host info json marshal error")
 		return err4
 	}
 	HostInfoString := string(b)
@@ -874,20 +878,20 @@ func AddHost(hostName string) error {
 		if err2 != nil {
 			return err2
 		}
-		fmt.Println("AddHost: host " + hostName + " added")
+		log.Println(1, "AddHost: host "+hostName+" added")
 	} else {
-		fmt.Println("AddHost: host already exists")
+		log.Println(1, "AddHost: host already exists")
 		return errors.New("host already exists")
 	}
 	return nil
 }
 
 func HostAddHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("HostAddHandler")
+	log.Println(1, "HostAddHandler")
 	var h Host
 	err := json.NewDecoder(r.Body).Decode(&h)
 	if err != nil {
-		fmt.Println("HostAddHandler: " + err.Error())
+		log.Println(1, "HostAddHandler: "+err.Error())
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -901,14 +905,16 @@ func HostAddHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func RemoveHost(hostName string) error {
-	fmt.Println("RemoveHost")
+	log.Println(1, "RemoveHost")
 	dir, err := EtcdListDir("/rws/hosts")
 	if err != nil {
 		return err
 	}
 	found := false
 	for _, node := range dir {
-		if hostName == node.Key {
+		keySplit := strings.Split(node.Key, "/")
+		keyName := keySplit[len(keySplit)-1]
+		if hostName == keyName {
 			found = true
 			break
 		}
@@ -925,7 +931,7 @@ func RemoveHost(hostName string) error {
 }
 
 func HostRemoveHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("HostRemoveHandler")
+	log.Println(1, "HostRemoveHandler")
 	bodyBytes, err3 := ioutil.ReadAll(r.Body)
 	if err3 != nil {
 		fail("HostRemoveHandler: response read error", err3, w)
@@ -947,10 +953,10 @@ func HostRemoveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ListHosts() (string, error) {
-	fmt.Println("ListHosts")
+	log.Println(1, "ListHosts")
 	hosts, err := EtcdListDir("/rws/hosts")
 	if err != nil {
-		fmt.Println("EtcdListDir error")
+		log.Println(1, "EtcdListDir error")
 		return "", err
 	}
 	var l []map[string]string
@@ -970,7 +976,7 @@ func ListHosts() (string, error) {
 }
 
 func HostListHandler(w http.ResponseWriter, _ *http.Request) {
-	fmt.Println("HostListHandler")
+	log.Println(1, "HostListHandler")
 	s, err := ListHosts()
 	if err == nil {
 		w.WriteHeader(http.StatusOK)
@@ -1010,29 +1016,29 @@ func HostInfoHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func GetFileSize(filename, host, port string) (uint64, error) {
-	fmt.Println("GetFileSize")
+	log.Println(1, "GetFileSize")
 	url := fmt.Sprintf("http://%s:%s/storage_file_size/%s", host, port, filename)
 	body, err := http.Get(url)
 	if err != nil {
-		fmt.Println("get error")
-		fmt.Println(body.Body)
+		log.Println(1, "get error")
+		log.Println(1, body.Body)
 		return 0, err
 	}
 	if body.StatusCode != 200 {
-		fmt.Println(body.StatusCode)
-		fmt.Println("status code error")
+		log.Println(1, body.StatusCode)
+		log.Println(1, "status code error")
 		return 0, err
 	}
 	b, err2 := ioutil.ReadAll(body.Body)
 	if err2 != nil {
-		fmt.Println(err2)
-		fmt.Println("response read error")
+		log.Println(1, err2)
+		log.Println(1, "response read error")
 		return 0, err2
 	}
 	i, err3 := strconv.Atoi(string(b))
 	if err != nil {
-		fmt.Println("atoi error")
-		fmt.Println(err3)
+		log.Println(1, "atoi error")
+		log.Println(1, err3)
 		return 0, err3
 	}
 	return uint64(i), nil
@@ -1042,9 +1048,9 @@ func GetHostInfo(host string) (Host, error) {
 	url := "http://" + host + "/host_info"
 	body, err := http.Get(url)
 	if err != nil {
-		fmt.Println("GetHostInfo: get error")
-		fmt.Println("GetHostInfo: " + url)
-		fmt.Println(body)
+		log.Println(1, "GetHostInfo: get error")
+		log.Println(1, "GetHostInfo: "+url)
+		log.Println(1, body)
 		return Host{}, err
 	}
 	var ThatHost Host
@@ -1056,8 +1062,8 @@ func GetHostPods(host string) ([]Pod, error) {
 	url := fmt.Sprintf("http://" + host + "/pod_list")
 	body, err := http.Get(url)
 	if err != nil {
-		fmt.Println("get error")
-		fmt.Println(body)
+		log.Println(1, "get error")
+		log.Println(1, body)
 		return []Pod{}, err
 	}
 	var ThatHostPods []Pod
@@ -1072,32 +1078,32 @@ func GetHostContainers(host string) ([]Container, error) {
 	url := "http://" + host + "/container_list_local"
 	body, err := http.Get(url)
 	if err != nil {
-		fmt.Println("get error")
-		fmt.Println(body)
+		log.Println(1, "get error")
+		log.Println(1, body)
 		return []Container{}, err
 	}
 	BodyBytes, err2 := ioutil.ReadAll(body.Body)
 	if err2 != nil {
-		fmt.Println("GetHostContainers error")
-		fmt.Println(err2)
+		log.Println(1, "GetHostContainers error")
+		log.Println(1, err2)
 		return []Container{}, err2
 	}
 	if len(BodyBytes) == 0 {
-		fmt.Println("no containers running on Host")
+		log.Println(1, "no containers running on Host")
 		return []Container{}, nil
 	}
 	var HostContainers []Container
 	err3 := json.Unmarshal(BodyBytes, &HostContainers)
 	if err3 != nil {
-		fmt.Println("json unmarshal error")
-		fmt.Println(err3)
+		log.Println(1, "json unmarshal error")
+		log.Println(1, err3)
 		return []Container{}, err3
 	}
 	return HostContainers, nil
 }
 
 func IndexHandler(w http.ResponseWriter, _ *http.Request) {
-	fmt.Println("IndexHandler")
+	log.Println(1, "IndexHandler")
 	const tpl = `
 <!DOCTYPE html>
 <html>
@@ -1241,21 +1247,21 @@ func IndexHandler(w http.ResponseWriter, _ *http.Request) {
 
 	t, err2 := template.New("index").Parse(tpl)
 	if err2 != nil {
-		fmt.Println("index html rendering error")
-		fmt.Println(err2)
+		log.Println(1, "index html rendering error")
+		log.Println(1, err2)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err2.Error()))
 	}
 	err = t.Execute(w, info)
 	if err != nil {
-		fmt.Println("template error")
-		fmt.Println(err)
+		log.Println(1, "template error")
+		log.Println(1, err)
 	}
 	return
 }
 
 func PodAddHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("PodAddHandler")
+	log.Println(1, "PodAddHandler")
 	bodyBytes, err2 := ioutil.ReadAll(r.Body)
 	if err2 != nil {
 		fail("PodAddHandler: response read error", err2, w)
@@ -1324,27 +1330,27 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 			c := Container{p.Image, pName, p.Disk, p.Memory, p.Cores, h.Key, "", p.Cmd}
 			b, err2 := json.Marshal(c)
 			if err2 != nil {
-				fmt.Println("PodAddHandler: json.Marshal error")
-				fmt.Println(err2)
+				log.Println("PodAddHandler: json.Marshal error")
+				log.Println(err2)
 				continue
 			}
 			buf := bytes.NewBuffer(b)
 			resp, err1 := http.Post(url, "application/json", buf)
 			if err1 != nil {
-				fmt.Println("PodAddHandler: http.Post error")
-				fmt.Println(err1)
+				log.Println("PodAddHandler: http.Post error")
+				log.Println(err1)
 				continue
 			}
 			if resp.StatusCode != 200 {
-				fmt.Println("PodAddHandler: request status code error")
-				fmt.Println(resp.StatusCode)
-				fmt.Println(resp)
+				log.Println("PodAddHandler: request status code error")
+				log.Println(resp.StatusCode)
+				log.Println(resp)
 				continue
 			}
 			body, err2 := ioutil.ReadAll(resp.Body)
 			if err2 != nil {
-				fmt.Println("PodAddHandler: response read error")
-				fmt.Println(err2)
+				log.Println("PodAddHandler: response read error")
+				log.Println(err2)
 				continue
 			}
 			c.ID = string(body)
@@ -1360,13 +1366,13 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 	if err7 != nil {
 		fail("PodAddHandler: etcdSetKey error", err7, w)
 	}
-	fmt.Println("PodAddHandler: all pod containers running")
-	fmt.Println(w, "OK")
+	log.Println("PodAddHandler: all pod containers running")
+	w.Write([]byte("OK"))
 	return
 }
 
 func PodStopHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("PodStopHandler")
+	log.Println("PodStopHandler")
 	bodyBytes, err2 := ioutil.ReadAll(r.Body)
 	if err2 != nil {
 		fail("PodAdHandler: response read error", err2, w)
@@ -1388,25 +1394,25 @@ func PodStopHandler(w http.ResponseWriter, r *http.Request) {
 			url := "http://" + host.Key + "/container_list"
 			body, err := http.Get(url)
 			if err != nil {
-				fmt.Println("get error")
-				fmt.Println("body")
+				log.Println("get error")
+				log.Println(body)
 				continue
 			}
 			if body.StatusCode != 200 {
-				fmt.Println(body.StatusCode)
-				fmt.Println("status code error")
+				log.Println("status code error")
+				log.Println(body.StatusCode)
 				continue
 			}
 			b, err2 := ioutil.ReadAll(body.Body)
 			if err2 != nil {
-				fmt.Println(err2)
-				fmt.Println("response read error")
+				log.Println("response read error")
+				log.Println(err2)
 			}
 			var RemoteContainers []Container
 			err3 := json.Unmarshal(b, &RemoteContainers)
 			if err != nil {
-				fmt.Println("json unmarshal error")
-				fmt.Println(err3)
+				log.Println("json unmarshal error")
+				log.Println(err3)
 				continue
 			}
 			for _, RemoteContainer := range RemoteContainers {
@@ -1416,20 +1422,20 @@ func PodStopHandler(w http.ResponseWriter, r *http.Request) {
 					url := "http://" + host.Key + "/container_stop"
 					resp, err1 := http.Post(url, "application/json", b)
 					if err1 != nil {
-						fmt.Println(err1)
-						fmt.Println("request error")
+						log.Println("request error")
+						log.Println(err1)
 						continue
 					}
 					if resp.StatusCode != 200 {
-						fmt.Println(resp.StatusCode)
-						fmt.Println(resp)
-						fmt.Println("request status code error")
+						log.Println("request status code error")
+						log.Println(resp.StatusCode)
+						log.Println(resp)
 						continue
 					}
 					_, err2 := ioutil.ReadAll(resp.Body)
 					if err2 != nil {
-						fmt.Println(err2)
-						fmt.Println("response read error")
+						log.Println("response read error")
+						log.Println(err2)
 						continue
 					}
 				}
@@ -1440,10 +1446,10 @@ func PodStopHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ListPods() (string, error) {
-	fmt.Println("ListPods")
+	log.Println("ListPods")
 	pods, err := EtcdListDir("/rws/pods")
 	if err != nil {
-		fmt.Println("EtcdListDir error")
+		log.Println("EtcdListDir error")
 		return "", err
 	}
 	var l []map[string]string
@@ -1462,7 +1468,7 @@ func ListPods() (string, error) {
 }
 
 func PodListHandler(w http.ResponseWriter, _ *http.Request) {
-	fmt.Println("PodListHandler")
+	log.Println("PodListHandler")
 	s, err := ListPods()
 	if err != nil {
 		fail("PodsList error", err, w)
@@ -1473,7 +1479,7 @@ func PodListHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func PodRemoveHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("pod remove")
+	log.Println("pod remove")
 	var p Pod
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
@@ -1489,11 +1495,11 @@ func PodRemoveHandler(w http.ResponseWriter, r *http.Request) {
 
 func scheduler() {
 	for {
-		fmt.Println("scheduler: check pods and containers")
+		log.Println("scheduler: check pods and containers")
 		dir, err := EtcdListDir("/rws/pods")
 		if err != nil {
-			fmt.Println("EtcdListDir error")
-			fmt.Println(err)
+			log.Println("EtcdListDir error")
+			log.Println(err)
 			time.Sleep(60 * time.Second)
 			continue
 		}
@@ -1502,8 +1508,8 @@ func scheduler() {
 			var p Pod
 			err2 := json.Unmarshal([]byte(pod.Value), &p)
 			if err2 != nil {
-				fmt.Println("scheduler: json.Unmarshal error")
-				fmt.Println(err2)
+				log.Println("scheduler: json.Unmarshal error")
+				log.Println(err2)
 				time.Sleep(60 * time.Second)
 				continue
 			}
@@ -1511,8 +1517,8 @@ func scheduler() {
 		}
 		dir2, err2 := EtcdListDir("/rws/containers")
 		if err2 != nil {
-			fmt.Println("EtcdListDir error")
-			fmt.Println(err2)
+			log.Println("EtcdListDir error")
+			log.Println(err2)
 			time.Sleep(60 * time.Second)
 			continue
 		}
@@ -1521,23 +1527,23 @@ func scheduler() {
 			var c Container
 			err3 := json.Unmarshal([]byte(cont.Value), &c)
 			if err3 != nil {
-				fmt.Println("scheduler: json.Unmarshal error")
-				fmt.Println(err3)
+				log.Println("scheduler: json.Unmarshal error")
+				log.Println(err3)
 				time.Sleep(60 * time.Second)
 				continue
 			}
 			containers = append(containers, c)
 		}
 		if len(pods) == 0 {
-			fmt.Println("scheduler: no pods found")
+			log.Println("scheduler: no pods found")
 			time.Sleep(60 * time.Second)
 			continue
 		}
 		var hosts []Host
 		dir2, err5 := EtcdListDir("/rws/hosts")
 		if err5 != nil {
-			fmt.Println("scheduler: EtcdListDir error")
-			fmt.Println(err5)
+			log.Println("scheduler: EtcdListDir error")
+			log.Println(err5)
 			time.Sleep(60 * time.Second)
 			continue
 		}
@@ -1545,26 +1551,26 @@ func scheduler() {
 			var h Host
 			err2 := json.Unmarshal([]byte(host.Value), &h)
 			if err2 != nil {
-				fmt.Println("scheduler: json unmarshal error")
-				fmt.Println(err2)
+				log.Println("scheduler: json unmarshal error")
+				log.Println(err2)
 				time.Sleep(60 * time.Second)
 				continue
 			}
 			hosts = append(hosts, h)
 		}
 		if len(hosts) == 0 {
-			fmt.Println("scheduler: no hosts found")
+			log.Println("scheduler: no hosts found")
 			time.Sleep(60 * time.Second)
 			continue
 		}
 		for _, p := range pods {
-			fmt.Println("scheduler: Pod " + p.Name + " should have " + string(p.Count) + " containers")
+			log.Println("scheduler: Pod " + p.Name + " should have " + string(p.Count) + " containers")
 			var foundContainers uint64
 			for _, h := range hosts {
 				hostRunningContainers, err4 := GetHostContainers(h.Name)
 				if err4 != nil {
-					fmt.Println("scheduler: getHostContainers error")
-					fmt.Println(err4)
+					log.Println("scheduler: getHostContainers error")
+					log.Println(err4)
 					time.Sleep(60 * time.Second)
 					continue
 				}
@@ -1591,8 +1597,8 @@ func scheduler() {
 				for _, host := range hosts {
 					id, err := RunContainer(p.Image, p.Name, p.Cmd)
 					if err != nil {
-						fmt.Println("scheduler: RunContainer error")
-						fmt.Println(err)
+						log.Println("scheduler: RunContainer error")
+						log.Println(err)
 						time.Sleep(60 * time.Second)
 						continue
 					}
@@ -1602,15 +1608,15 @@ func scheduler() {
 			}
 			podMarshalled, err4 := json.Marshal(p)
 			if err4 != nil {
-				fmt.Println("scheduler: json.Marshal error")
-				fmt.Println(err4)
+				log.Println("scheduler: json.Marshal error")
+				log.Println(err4)
 				time.Sleep(60 * time.Second)
 				continue
 			}
 			err5 := etcdSetKey("/rws/pods/"+p.Name, string(podMarshalled))
 			if err5 != nil {
-				fmt.Println("scheduler: etcdSetKey error")
-				fmt.Println(err5)
+				log.Println("scheduler: etcdSetKey error")
+				log.Println(err5)
 				time.Sleep(60 * time.Second)
 				continue
 			}
@@ -1619,14 +1625,15 @@ func scheduler() {
 	}
 }
 func main() {
-	fmt.Println("starting server")
-	hostNameBytes, err1 := ioutil.ReadFile("/etc/hostname")
-	if err1 != nil {
-		fmt.Println(err1)
-		panic("/etc/hostname reading error")
-	}
-	LocalHostNumber := string(hostNameBytes[len(hostNameBytes)-2])
-	LocalHostName = LocalIPPrefix + LocalHostNumber + ":" + LocalPort
+	log.Println("starting server")
+	log.SetFlags(log.Ldate | log.Ltime | log.Llongfile | log.Lmicroseconds)
+	//hostNameBytes, err1 := ioutil.ReadFile("/etc/hostname")
+	//if err1 != nil {
+	//	log.Println(err1)
+	//	panic("/etc/hostname reading error")
+	//}
+	//LocalHostNumber := string(hostNameBytes[len(hostNameBytes)-2])
+	//LocalHostName = LocalIPPrefix + LocalHostNumber + ":" + LocalPort
 	etcdCfg := etcdClient.Config{
 		Endpoints: []string{EtcdHost},
 		Transport: etcdClient.DefaultTransport,
@@ -1634,7 +1641,7 @@ func main() {
 	var err error
 	EtcdClient, err = etcdClient.New(etcdCfg)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		panic("etcd client initialization error")
 	}
 	go scheduler()

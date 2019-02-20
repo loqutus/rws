@@ -14,10 +14,7 @@ import (
 
 func TestHosts(t *testing.T) {
 	fmt.Println("TestHosts: add hosts")
-	for i := 1; i <= 5; i++ {
-		s := fmt.Sprintf("10.0.0.%d", i)
-		hosts("host_add", s, "8888")
-	}
+	hosts("host_add", "localhost", "8888")
 }
 
 func TestStorage(t *testing.T) {
@@ -44,7 +41,7 @@ func TestStorage(t *testing.T) {
 		fmt.Println(err2)
 		t.Errorf("storage download error")
 	}
-	dat, err = ioutil.ReadFile("test")
+	dat, err = ioutil.ReadFile("../server/data/test")
 	if err != nil {
 		fmt.Println(err)
 		t.Errorf("TestStorage: downloaded file read error")
@@ -65,7 +62,7 @@ func TestStorage(t *testing.T) {
 		fmt.Println(err4)
 		t.Errorf("storage list json.Unmarshal error")
 	}
-	var z = []File{File{"test", "10.0.0.1:8888", 5, 1}}
+	var z = []File{File{"test", "localhost:8888", 5, 1}}
 	if len(z) != len(c) || z[0].Name != c[0].Name || z[0].Host != c[0].Host ||
 		z[0].Replicas != c[0].Replicas || z[0].Size != c[0].Size {
 		fmt.Println("Got: " + s)
@@ -107,7 +104,7 @@ func ListLocalContainers() ([]types.Container, error) {
 func TestContainer(t *testing.T) {
 	fmt.Println("test container run")
 	cmd := []string{"/bin/sleep", "60"}
-	containerID := container("container_run", "arm32v6/alpine", "test", cmd)
+	containerID := container("container_run", "alpine", "test", cmd)
 	localContainers1, err := ListLocalContainers()
 	if err != nil {
 		panic(err)
@@ -186,16 +183,17 @@ func TestHostInfo(t *testing.T) {
 func TestPod(t *testing.T) {
 	fmt.Println("test Pod add")
 	cmd := []string{"/bin/sleep", "60"}
-	_ = pods("pod_add", Pod{"pod-test", "arm32v6/alpine", 1, 1, 1, 1, cmd, []Container{}})
+	pod := Pod{"pod-test", "alpine", 1, 1, 1, 1, cmd, []Container{}}
+	_ = pods("pod_add", pod)
 	fmt.Println("test Pod list")
 	_ = pods("pod_list", Pod{})
 	fmt.Println("test Pod remove")
-	_ = pods("pod_remove", Pod{})
+	_ = pods("pod_remove", pod)
 }
 
 func TestHost(t *testing.T) {
 	fmt.Println("test host list")
 	_ = hosts("host_list", "", "")
 	fmt.Println("test host remove")
-	_ = hosts("host_remove", "10.0.0.1", "8888")
+	_ = hosts("host_remove", "localhost", "8888")
 }
