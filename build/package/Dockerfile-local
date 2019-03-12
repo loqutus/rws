@@ -1,0 +1,4 @@
+FROM alpine
+COPY ./server /server
+VOLUME /data /data
+CMD ["/server"]
