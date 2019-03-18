@@ -1,8 +1,0 @@
-FROM arm32v7/ubuntu:18.04
-RUN apt update && apt install -y etcd
-ENV ETCD_UNSUPPORTED_ARCH arm
-ENV ETCD_ADVERTISE_CLIENT_URLS http://0.0.0.0:2379
-ENV ETCD_LISTEN_CLIENT_URLS http://0.0.0.0:2379
-CMD ["sh", "-c", "/usr/bin/etcd"]
-EXPOSE 2379
-EXPOSE 2380
