@@ -1,19 +1,19 @@
 package etcd
 
 import (
+	"github.com/loqutus/rws/pkg/server/conf"
 	etcdClient "go.etcd.io/etcd/client"
 	"golang.org/x/net/context"
 	"log"
 	"time"
 )
 
-const Host = "http://etcd:2379"
 
 var Client etcdClient.Client
 
 func init() {
 	etcdCfg := etcdClient.Config{
-		Endpoints: []string{Host},
+		Endpoints: []string{conf.EtcdHost},
 		Transport: etcdClient.DefaultTransport,
 	}
 	var err error

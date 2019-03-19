@@ -24,13 +24,13 @@ func TestHosts(t *testing.T) {
 func TestStorage(t *testing.T) {
 	fmt.Println("TestStorage: test storage upload")
 	HostName = "http://localhost:8888"
-	s, err := storage.Upload("test")
+	s, err := storage.Upload("/home/rusik/go/src/github.com/loqutus/rws/test/test")
 	if err != nil {
 		fmt.Println(s)
 		fmt.Println(err)
 		t.Errorf("TestStorage: storage upload error")
 	}
-	dat, err := ioutil.ReadFile("test")
+	dat, err := ioutil.ReadFile("/home/rusik/go/src/github.com/loqutus/rws/test/data/test")
 	if err != nil {
 		fmt.Println(err)
 		t.Errorf("TestStorage: upload file read error")
@@ -45,7 +45,7 @@ func TestStorage(t *testing.T) {
 		fmt.Println(err2)
 		t.Errorf("storage download error")
 	}
-	dat, err = ioutil.ReadFile("../server/data/test")
+	dat, err = ioutil.ReadFile("test")
 	if err != nil {
 		fmt.Println(err)
 		t.Errorf("TestStorage: downloaded file read error")
@@ -155,7 +155,7 @@ func TestContainer(t *testing.T) {
 		}
 	}
 	if found != true {
-		panic("container is not found in all containers list")
+		panic("container not found in all containers list")
 	}
 	fmt.Println("test container stop")
 	_ = containers.ContainerAction("container_stop", "", "test", cmd)
@@ -181,13 +181,14 @@ func TestContainer(t *testing.T) {
 
 func TestHostInfo(t *testing.T) {
 	fmt.Println("test host info")
-	_ := hosts.HostsAction("host_info", "", "")
+	_ = hosts.HostsAction("host_info", "", "")
 }
 
 func TestPod(t *testing.T) {
 	fmt.Println("test Pod add")
 	cmd := []string{"/bin/sleep", "60"}
-	pod := pods.Pod{"pod-test", "alpine", 1, 1, 1, 1, cmd, []containers.Container}
+	var cont []containers.Container
+	pod := pods.Pod{"pod-test", "alpine", 1, 1, 1, 1, cmd, cont}
 	_ = pods.PodsAction("pod_add", pod)
 	fmt.Println("test Pod list")
 	_ = pods.PodsAction("pod_list", pods.Pod{})

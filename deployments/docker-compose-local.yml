@@ -6,7 +6,7 @@ services:
       - "8888:8888"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
-      - "/Users/rusik/gopath/src/github.com/loqutus/rws/server/data:/data"
+      - "/home/rusik/go/src/github.com/loqutus/rws/test/data:/data"
   etcd:
     image: "bitnami/etcd"
     ports:

@@ -1,1 +1,5 @@
 .idea/*
+cmd/client/test
+cmd/server/server
+build/package/server
+test/data/test
