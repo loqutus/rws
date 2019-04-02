@@ -10,6 +10,7 @@ docker container prune -f
 cd ../../deployments
 docker-compose -f docker-compose-local.yml down --remove-orphans
 docker-compose -f docker-compose-local.yml up -d
+sleep 1
 etcdctl mkdir /rws
 etcdctl mkdir /rws/hosts
 etcdctl mkdir /rws/pods

@@ -36,7 +36,7 @@ func TestStorage(t *testing.T) {
 		t.Errorf("TestStorage: upload file read error")
 	}
 	if bytes.Compare(dat, []byte("test\n")) != 0 {
-		fmt.Println(s)
+		fmt.Println(dat)
 		t.Errorf("TestStorage: upload file content error")
 	}
 	fmt.Println("TestStorage: test storage download")
@@ -128,6 +128,7 @@ func TestContainer(t *testing.T) {
 	var allContainers []containers.Container
 	err2 := json.Unmarshal([]byte(allContainersString), &allContainers)
 	if err2 != nil {
+		fmt.Println(err2)
 		panic("json.Unmarshal error")
 	}
 	found = false

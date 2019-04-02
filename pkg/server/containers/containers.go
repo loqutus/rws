@@ -431,7 +431,7 @@ func ContainerRemoveHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		url := "http://" + cont.Host + "/container_remove/" + cont.Name
+		url := "http://" + cont.Host + "/container_remove"
 		b, err2 := json.Marshal(c)
 		if err2 != nil {
 			log.Println(1, err2)
