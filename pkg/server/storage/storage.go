@@ -50,6 +50,8 @@ func StorageUploadHandler(w http.ResponseWriter, r *http.Request) {
 		utils.Fail("StorageUploadHandler: request reading error", err, w)
 		return
 	}
+	fmt.Println("-----")
+	fmt.Println(body)
 	FileSize := len(body)
 	FilePathName := conf.DataDir + "/" + fileName
 	di, err2 := disk.Usage("/")
@@ -199,7 +201,6 @@ func StorageDownloadHandler(w http.ResponseWriter, r *http.Request) {
 			utils.Fail("StorageDownloadHandler: request write error", err6, w)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
 		return
 	}
 }
@@ -303,7 +304,7 @@ func StorageListHandler(w http.ResponseWriter, _ *http.Request) {
 		utils.Fail("StorageListHandler: request write error", err2, w)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	return
 }
 
 func StorageFileSizeHandler(w http.ResponseWriter, r *http.Request) {
@@ -335,7 +336,11 @@ func StorageFileSizeHandler(w http.ResponseWriter, r *http.Request) {
 	if err2 != nil {
 		utils.Fail("StorageFileSizeHandler: json.Unmarshal error", err2, w)
 	}
-	w.Write([]byte(strconv.Itoa(int(f.Size))))
+	_, err3 := w.Write([]byte(strconv.Itoa(int(f.Size))))
+	if err3 != nil{
+		utils.Fail("StorageFileSizeHandler: request write error", err2, w)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	return
 }

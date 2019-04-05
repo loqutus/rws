@@ -1,11 +1,11 @@
 package storage
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/loqutus/rws/pkg/client/conf"
 	"io/ioutil"
 	"net/http"
+	"os"
 )
 
 type File struct {
@@ -16,14 +16,13 @@ type File struct {
 }
 
 func Upload(name string) (string, error) {
-	dat, err1 := ioutil.ReadFile(name)
+	file, err1 := os.Open(name)
 	if err1 != nil {
 		fmt.Println(err1)
 		panic("file read error")
 	}
 	url := conf.HostName + "/storage_upload/" + name
-	body := bytes.NewBuffer(dat)
-	dat2, err2 := http.Post(url, "application/octet-stream", body)
+	dat2, err2 := http.Post(url, "application/octet-stream", file)
 	if err2 != nil {
 		fmt.Println(err2)
 		panic("upload error")

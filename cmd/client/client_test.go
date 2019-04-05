@@ -4,15 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
-	"github.com/loqutus/rws/pkg/client/containers"
 	"github.com/loqutus/rws/pkg/client/hosts"
-	"github.com/loqutus/rws/pkg/client/pods"
 	"github.com/loqutus/rws/pkg/client/storage"
-	"golang.org/x/net/context"
+	"github.com/loqutus/rws/pkg/client/conf"
+
 	"io/ioutil"
-	"os"
 	"testing"
 )
 
@@ -23,20 +19,21 @@ func TestHosts(t *testing.T) {
 
 func TestStorage(t *testing.T) {
 	fmt.Println("TestStorage: test storage upload")
-	HostName = "http://localhost:8888"
-	s, err := storage.Upload("/home/rusik/go/src/github.com/loqutus/rws/test/test")
+	s, err := storage.Upload(conf.StorageTestDir + "/test")
 	if err != nil {
 		fmt.Println(s)
 		fmt.Println(err)
 		t.Errorf("TestStorage: storage upload error")
 	}
-	dat, err := ioutil.ReadFile("/home/rusik/go/src/github.com/loqutus/rws/test/data/test")
+	dat, err := ioutil.ReadFile(conf.StorageTestDir + "/data/test")
 	if err != nil {
 		fmt.Println(err)
 		t.Errorf("TestStorage: upload file read error")
 	}
 	if bytes.Compare(dat, []byte("test\n")) != 0 {
-		fmt.Println(dat)
+		fmt.Println("TestStorage: upload file content error:")
+		fmt.Println("Should be: test\\n")
+		fmt.Println("Got: ", dat)
 		t.Errorf("TestStorage: upload file content error")
 	}
 	fmt.Println("TestStorage: test storage download")
@@ -77,7 +74,7 @@ func TestStorage(t *testing.T) {
 		fmt.Println("Should be: " + string(fileBytes))
 		t.Errorf("storage list not right")
 	}
-	fmt.Println("TestStorage: test storage remove")
+/*	fmt.Println("TestStorage: test storage remove")
 	_, err5 := storage.Remove("test")
 	if err5 != nil {
 		fmt.Println(err5)
@@ -86,9 +83,10 @@ func TestStorage(t *testing.T) {
 	if _, err := os.Stat("../server/data/test"); os.IsNotExist(err) == false {
 		t.Errorf("file test exists, should be removed")
 	}
+ */
 }
 
-func ListLocalContainers() ([]types.Container, error) {
+/*func ListLocalContainers() ([]types.Container, error) {
 	c := client.WithVersion("1.38")
 	cli, err := client.NewClientWithOpts(c)
 	if err != nil {
@@ -203,3 +201,4 @@ func TestHost(t *testing.T) {
 	fmt.Println("test host remove")
 	_ = hosts.HostsAction("host_remove", "localhost", "8888")
 }
+*/
