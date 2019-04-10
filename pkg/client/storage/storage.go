@@ -22,7 +22,7 @@ func Upload(name string) (string, error) {
 		panic("file read error")
 	}
 	url := conf.HostName + "/storage_upload/" + name
-	dat2, err2 := http.Post(url, "application/octet-stream", file)
+	dat2, err2 := http.Post(url, "binary/octet-stream", file)
 	if err2 != nil {
 		fmt.Println(err2)
 		panic("upload error")
