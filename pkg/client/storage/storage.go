@@ -1,11 +1,11 @@
 package storage
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/loqutus/rws/pkg/client/conf"
 	"io/ioutil"
 	"net/http"
-	"os"
 )
 
 type File struct {
@@ -16,28 +16,29 @@ type File struct {
 }
 
 func Upload(name string) (string, error) {
-	file, err1 := os.Open(name)
+	data, err := ioutil.ReadFile(name)
+	if err != nil {
+		fmt.Println(err)
+		panic("file open error")
+	}
+	url := fmt.Sprintf("%s/%s/%s", conf.HostName, "storage_upload", name)
+	resp, err1 := http.Post(url, "application/json", bytes.NewBuffer(data))
 	if err1 != nil {
 		fmt.Println(err1)
-		panic("file read error")
+		panic("request error")
 	}
-	url := conf.HostName + "/storage_upload/" + name
-	dat2, err2 := http.Post(url, "binary/octet-stream", file)
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		fmt.Println(resp.StatusCode)
+		fmt.Println(resp)
+		panic("request status code error")
+	}
+	b, err2 := ioutil.ReadAll(resp.Body)
 	if err2 != nil {
 		fmt.Println(err2)
-		panic("upload error")
+		panic("response read error")
 	}
-	if dat2.StatusCode != 200 {
-		fmt.Println(dat2.StatusCode)
-		fmt.Println(err2)
-		panic("status code error")
-	}
-	bodyBytes, err2 := ioutil.ReadAll(dat2.Body)
-	if err2 != nil {
-		fmt.Println(err2)
-		panic("body read error")
-	}
-	return string(bodyBytes), nil
+	return string(b), nil
 }
 
 func Download(name string) (string, error) {

@@ -12,7 +12,6 @@ func Req(action string, bodyBuffer *bytes.Buffer) ([]byte, error) {
 	// http://localhost:8888/container_add
 	url := fmt.Sprintf("%s/%s", conf.HostName, action)
 	resp, err1 := http.Post(url, "application/json", bodyBuffer)
-	defer resp.Body.Close()
 	if err1 != nil {
 		fmt.Println(err1)
 		panic("request error")

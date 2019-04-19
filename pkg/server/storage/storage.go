@@ -43,6 +43,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		keyName := GetFileNameFromPath(file.Key)
 		if keyName == fileName {
 			found = true
+			break
 		}
 	}
 	body, err := ioutil.ReadAll(r.Body)

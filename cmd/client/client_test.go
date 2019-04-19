@@ -2,12 +2,10 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
+	"github.com/loqutus/rws/pkg/client/conf"
 	"github.com/loqutus/rws/pkg/client/hosts"
 	"github.com/loqutus/rws/pkg/client/storage"
-	"github.com/loqutus/rws/pkg/client/conf"
-
 	"io/ioutil"
 	"testing"
 )
@@ -19,7 +17,7 @@ func TestHosts(t *testing.T) {
 
 func TestStorage(t *testing.T) {
 	fmt.Println("TestStorage: test storage upload")
-	s, err := storage.Upload(conf.StorageTestDir + "/test")
+	s, err := storage.Upload("test")
 	if err != nil {
 		fmt.Println(s)
 		fmt.Println(err)
@@ -36,7 +34,7 @@ func TestStorage(t *testing.T) {
 		fmt.Println("Got: ", dat)
 		t.Errorf("TestStorage: upload file content error")
 	}
-	fmt.Println("TestStorage: test storage download")
+	/*fmt.Println("TestStorage: test storage download")
 	s, err2 := storage.Download("test")
 	if err2 != nil {
 		fmt.Println(err2)
@@ -74,7 +72,7 @@ func TestStorage(t *testing.T) {
 		fmt.Println("Should be: " + string(fileBytes))
 		t.Errorf("storage list not right")
 	}
-/*	fmt.Println("TestStorage: test storage remove")
+	fmt.Println("TestStorage: test storage remove")
 	_, err5 := storage.Remove("test")
 	if err5 != nil {
 		fmt.Println(err5)
@@ -83,7 +81,7 @@ func TestStorage(t *testing.T) {
 	if _, err := os.Stat("../server/data/test"); os.IsNotExist(err) == false {
 		t.Errorf("file test exists, should be removed")
 	}
- */
+	*/
 }
 
 /*func ListLocalContainers() ([]types.Container, error) {
