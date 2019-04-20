@@ -9,7 +9,6 @@ docker container prune -f
 cd ../../deployments
 docker-compose -f docker-compose-local.yml down --remove-orphans
 docker-compose -f docker-compose-local.yml up -d
-docker run -d --rm --net container:$(docker ps | grep rws | awk '{print $1}') nicolaka/netshoot tcpdump -X port 8888
 sleep 1
 etcdctl mkdir /rws
 etcdctl mkdir /rws/hosts
@@ -19,5 +18,4 @@ etcdctl mkdir /rws/storage
 cd ../cmd/client
 go test
 cd ../../scripts/
-rm ../test/data/test
-docker logs $(docker ps | grep rws | awk '{print $1}')
+#docker logs $(docker ps | grep rws | awk '{print $1}')

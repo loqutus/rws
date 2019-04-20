@@ -422,7 +422,7 @@ func ContainerRemoveHandler(w http.ResponseWriter, r *http.Request) {
 		utils.Fail("ContainerRemoveHandler: container not found", errors.New(""), w)
 		return
 	}
-	if c.Host == conf.LocalHostName {
+	if cont.Host == conf.LocalHostName {
 		err2 := RemoveContainer(c.Name)
 		if err2 == nil {
 			fmt.Fprintf(w, "OK")

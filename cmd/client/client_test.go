@@ -2,11 +2,18 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"github.com/loqutus/rws/pkg/client/conf"
+	"github.com/loqutus/rws/pkg/client/containers"
 	"github.com/loqutus/rws/pkg/client/hosts"
+	"github.com/loqutus/rws/pkg/client/pods"
 	"github.com/loqutus/rws/pkg/client/storage"
 	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -34,7 +41,7 @@ func TestStorage(t *testing.T) {
 		fmt.Println("Got: ", dat)
 		t.Errorf("TestStorage: upload file content error")
 	}
-	/*fmt.Println("TestStorage: test storage download")
+	fmt.Println("TestStorage: test storage download")
 	s, err2 := storage.Download("test")
 	if err2 != nil {
 		fmt.Println(err2)
@@ -81,10 +88,9 @@ func TestStorage(t *testing.T) {
 	if _, err := os.Stat("../server/data/test"); os.IsNotExist(err) == false {
 		t.Errorf("file test exists, should be removed")
 	}
-	*/
 }
 
-/*func ListLocalContainers() ([]types.Container, error) {
+func ListLocalContainers() ([]types.Container, error) {
 	c := client.WithVersion("1.38")
 	cli, err := client.NewClientWithOpts(c)
 	if err != nil {
@@ -199,4 +205,3 @@ func TestHost(t *testing.T) {
 	fmt.Println("test host remove")
 	_ = hosts.HostsAction("host_remove", "localhost", "8888")
 }
-*/
