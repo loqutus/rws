@@ -53,6 +53,7 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 	bodyBytes, err2 := ioutil.ReadAll(r.Body)
 	if err2 != nil {
 		utils.Fail("PodAddHandler: response read error", err2, w)
+		return
 	}
 	var p Pod
 	err := json.Unmarshal(bodyBytes, &p)
@@ -76,11 +77,12 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if found == true {
 		utils.Fail("PodAddHandler: pod already exists", errors.New("pod already exists"), w)
-		return
+ 		return
 	}
 	hostsDir, err := etcd.ListDir("/rws/hosts/")
 	if err != nil {
 		utils.Fail("PodAddHandler: Etcd.ListDir error", err, w)
+		return
 	}
 	var i uint64
 	for _, h := range hostsDir {
@@ -115,7 +117,7 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 			url := "http://" + keyName + "/container_run"
 			s := uniuri.New()
 			pName := p.Name + "_" + s
-			c := containers.Container{p.Image, pName, p.Disk, p.Memory, p.Cores, h.Key, "", p.Cmd}
+			c := containers.Container{p.Image, pName, p.Disk, p.Memory, p.Cores, keyName, "", p.Cmd}
 			b, err2 := json.Marshal(c)
 			if err2 != nil {
 				log.Println("PodAddHandler: json.Marshal error")

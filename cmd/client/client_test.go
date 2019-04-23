@@ -10,7 +10,6 @@ import (
 	"github.com/loqutus/rws/pkg/client/conf"
 	"github.com/loqutus/rws/pkg/client/containers"
 	"github.com/loqutus/rws/pkg/client/hosts"
-	"github.com/loqutus/rws/pkg/client/pods"
 	"github.com/loqutus/rws/pkg/client/storage"
 	"io/ioutil"
 	"os"
@@ -187,7 +186,7 @@ func TestHostInfo(t *testing.T) {
 	_ = hosts.HostsAction("host_info", "", "")
 }
 
-func TestPod(t *testing.T) {
+/*func TestPod(t *testing.T) {
 	fmt.Println("test Pod add")
 	cmd := []string{"/bin/sleep", "60"}
 	var cont []containers.Container
@@ -197,7 +196,7 @@ func TestPod(t *testing.T) {
 	_ = pods.PodsAction("pod_list", pods.Pod{})
 	fmt.Println("test Pod remove")
 	_ = pods.PodsAction("pod_remove", pod)
-}
+}*/
 
 func TestHost(t *testing.T) {
 	fmt.Println("test host list")

@@ -22,4 +22,6 @@ func Fail(str string, err error, w http.ResponseWriter) {
 		log.Println(err)
 		return
 	}
+	w.WriteHeader(500)
 }
+

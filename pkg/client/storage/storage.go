@@ -6,6 +6,7 @@ import (
 	"github.com/loqutus/rws/pkg/client/conf"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 type File struct {
@@ -21,7 +22,9 @@ func Upload(name string) (string, error) {
 		fmt.Println(err)
 		panic("file open error")
 	}
-	url := fmt.Sprintf("%s/%s/%s", conf.HostName, "storage_upload", name)
+	fileNameSplit := strings.Split(name, "/")
+	fileName := fileNameSplit[len(fileNameSplit)-1]
+	url := fmt.Sprintf("%s/%s/%s", conf.HostName, "storage_upload", fileName)
 	resp, err1 := http.Post(url, "application/json", bytes.NewBuffer(data))
 	if err1 != nil {
 		fmt.Println(err1)
