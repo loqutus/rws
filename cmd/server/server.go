@@ -7,6 +7,7 @@ import (
 	"github.com/loqutus/rws/pkg/server/pods"
 	"github.com/loqutus/rws/pkg/server/scheduler"
 	"github.com/loqutus/rws/pkg/server/storage"
+	"github.com/loqutus/rws/pkg/server/web"
 	"log"
 	"net/http"
 )
@@ -33,7 +34,9 @@ func main() {
 	http.HandleFunc("/host_remove", hosts.HostRemoveHandler)
 	http.HandleFunc("/host_list", hosts.HostListHandler)
 	http.HandleFunc("/host_info", hosts.HostInfoHandler)
-	if err := http.ListenAndServe(conf.Addr, nil); err != nil {
+	http.HandleFunc("/web", web.IndexHandler)
+	if err := http.ListenAndServe(conf.Addr, nil)
+	err != nil {
 		panic(err)
 	}
 }
