@@ -10,7 +10,7 @@ var rnd *renderer.Render
 
 func init() {
 	opts := renderer.Options{
-		ParseGlobPattern: "../web/tpl/*.html",
+		ParseGlobPattern: "/web/tpl/*.html",
 	}
 	rnd = renderer.New(opts)
 }
