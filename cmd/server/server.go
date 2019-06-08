@@ -13,8 +13,8 @@ import (
 )
 
 func main() {
-	log.Println("starting server")
 	log.SetFlags(log.Ldate | log.Ltime | log.Llongfile | log.Lmicroseconds)
+	log.Println("starting server")
 	go scheduler.Scheduler()
 	http.HandleFunc("/storage_upload/", storage.UploadHandler)
 	http.HandleFunc("/storage_download/", storage.DownloadHandler)
