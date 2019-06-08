@@ -1,0 +1,25 @@
+---
+- name: install packages
+  apt: name={{item}} state=present update_cache=yes
+  with_items:
+      - golang
+      - git
+
+- name: enable ip_forward
+  lineinfile: dest=/etc/sysctl.conf state=present line='net.ipv4.ip_forward = 1'
+  register: sysctl_conf
+
+- name: sysctl -p
+  shell: sysctl -p
+  when: sysctl_conf.changed
+
+- name: copy nat.sh
+  copy: src=nat.sh dest=/usr/local/bin/nat.sh mode=755
+  register: nat_sh
+
+- name: enable nat
+  shell: /usr/local/bin/nat.sh
+  when: nat_sh.changed
+
+- name: copy rc.local
+  copy: src=rc.local dest=/etc/rc.local mode=755

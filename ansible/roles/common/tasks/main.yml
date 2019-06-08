@@ -1,0 +1,64 @@
+---
+- name: install packages
+  apt: name={{item}} state=present update_cache=yes
+  with_items:
+    - ntp
+    - atop
+    - docker-compose
+    - byobu
+    - strace
+    - nload
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - software-properties-common
+    - golang
+  tags: packages
+
+- name: add docker apt key
+  apt_key: url=https://download.docker.com/linux/ubuntu/gpg state=present
+
+- name: add docker apt repository
+  apt_repository:
+    repo: deb [arch=armhf] https://download.docker.com/linux/ubuntu xenial stable
+    state: present
+      
+- name: install docker package
+  apt: name=docker-ce state=present
+
+- name: add user to docker group
+  user: name=rusik groups=docker
+
+- name: pi names in hosts
+  lineinfile: dest=/etc/hosts line={{item}}
+  with_items:
+    - 10.0.0.1 pi1
+    - 10.0.0.2 pi2
+    - 10.0.0.3 pi3
+    - 10.0.0.4 pi4
+    - 10.0..0.5 pi5
+  tags: hosts
+
+- name: copy sudoers file
+  copy: src=sudoers dest=/etc/sudoers force=yes mode=0440
+  tags: sudoers
+
+- name: copy vimrc
+  copy: src=vimrc dest=/home/rusik/.vimrc
+
+- name: copy docker defaults
+  copy: src=docker dest=/etc/default/docker
+  register: docker_file
+
+- name: restart docker on defaults file change
+  service: name=docker state=restarted
+  when: docker_file.changed
+
+- name: UseDNS no in sshd config
+  lineinfile: dest=/etc/ssh/sshd_config state=present line='UseDNS no'
+  register: sshd_config
+
+- name: restart sshd on ssh_config change
+  service: name=ssh state=restarted
+  when: sshd_config.changed
+

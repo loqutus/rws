@@ -4,3 +4,4 @@ cmd/server/server
 build/package/server
 test/data/test
 scripts/server
+ansible/*.retry
