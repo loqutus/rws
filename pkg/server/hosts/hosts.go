@@ -217,13 +217,14 @@ func HostInfo() (string, error) {
 }
 
 func HostInfoHandler(w http.ResponseWriter, _ *http.Request) {
+	log.Println("HostInfoHandler")
 	s, err := HostInfo()
 	if err == nil {
 		w.WriteHeader(http.StatusOK)
 		_, err = fmt.Fprintf(w, s)
 		if err != nil{
-			fmt.Println("HostInfoHandler: response write error")
-			fmt.Println(err)
+			log.Println("HostInfoHandler: response write error")
+			log.Println(err)
 		}
 	} else {
 		utils.Fail("HostInfo error", err, w)

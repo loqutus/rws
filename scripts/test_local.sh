@@ -19,4 +19,5 @@ etcdctl mkdir /rws/storage
 cd ../cmd/client
 go test
 cd ../../scripts/
-docker logs deployments_rws_1
+curl http://127.0.0.1/web 2>&1 > /dev/null
+docker logs -f deployments_rws_1

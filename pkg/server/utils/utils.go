@@ -24,4 +24,3 @@ func Fail(str string, err error, w http.ResponseWriter) {
 	}
 	w.WriteHeader(500)
 }
-
