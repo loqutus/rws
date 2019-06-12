@@ -49,7 +49,7 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 			podsCount = len(pds)
 		}
 	}
-	var cnts interface{}
+	var cnts []containers.Container
 	containersString, err := containers.ListAllContainers()
 	if err != nil {
 		log.Println("IndexHandler: ListAllContainers error")
