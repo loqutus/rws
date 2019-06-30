@@ -79,9 +79,10 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	II := IndexInfo{hostsCount, podsCount, containersCount, filesCount}
-	tmpl, err := template.ParseFiles("web/index.html")
-	if err != nil {
-		log.Println("IndexHandler: template.ParseFiles error")
+	tmpl := template.New("index")
+	tmpl , err = template.ParseFiles("web/index.html")
+	if err != nil{
+		log.Println("template.ParseFiles error")
 		log.Println(err)
 	}
 	err = tmpl.Execute(w, II)

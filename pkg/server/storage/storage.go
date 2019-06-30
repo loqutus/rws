@@ -277,6 +277,7 @@ func RemoveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func StorageList() (string, error) {
+	log.Println(1, "StorageList")
 	filesNodes, err := etcd.ListDir("/rws/storage")
 	if err != nil {
 		return "", errors.New("StorageList: EtcdListDir error")
