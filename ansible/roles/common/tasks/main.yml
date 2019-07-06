@@ -36,15 +36,12 @@
     - 10.0.0.2 pi2
     - 10.0.0.3 pi3
     - 10.0.0.4 pi4
-    - 10.0..0.5 pi5
+    - 10.0.0.5 pi5
   tags: hosts
 
 - name: copy sudoers file
   copy: src=sudoers dest=/etc/sudoers force=yes mode=0440
   tags: sudoers
-
-- name: copy vimrc
-  copy: src=vimrc dest=/home/rusik/.vimrc
 
 - name: copy docker defaults
   copy: src=docker dest=/etc/default/docker
