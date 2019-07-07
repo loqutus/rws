@@ -28,4 +28,4 @@
   file: path=/home/rusik/go state=directory
 
 - name: copy bashrc
-
+  copy: src=.bashrc dest=/home/rusik/.bashrc
