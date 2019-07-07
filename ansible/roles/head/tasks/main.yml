@@ -23,3 +23,9 @@
 
 - name: copy rc.local
   copy: src=rc.local dest=/etc/rc.local mode=755
+
+- name: mkdir /home/rusik/go
+  file: path=/home/rusik/go state=directory
+
+- name: copy bashrc
+
