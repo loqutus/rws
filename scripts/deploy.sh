@@ -23,4 +23,6 @@ for i in $(seq 2 5); do
     ssh pi$i docker-compose -f docker-compose.yml up -d
 done
 sleep 2
+cd ../cmd/client
+go test
 docker logs -f deployments_rws_1

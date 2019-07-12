@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/loqutus/rws/pkg/client/conf"
 	"github.com/loqutus/rws/pkg/client/containers"
 	"github.com/loqutus/rws/pkg/client/hosts"
+	"github.com/loqutus/rws/pkg/client/pods"
 	"github.com/loqutus/rws/pkg/client/storage"
 	"io/ioutil"
 	"os"
@@ -19,17 +19,20 @@ import (
 func TestHosts(t *testing.T) {
 	fmt.Println("TestHosts: add hosts")
 	hosts.HostsAction("host_add", "localhost", "8888")
+	for i := 1; i <= 5; i++ {
+		hosts.HostsAction("host_add", "pi"+string(i), "8888")
+	}
 }
 
 func TestStorage(t *testing.T) {
 	fmt.Println("TestStorage: test storage upload")
-	s, err := storage.Upload("test")
+	s, err := storage.Upload("../../test/test")
 	if err != nil {
 		fmt.Println(s)
 		fmt.Println(err)
 		t.Errorf("TestStorage: storage upload error")
 	}
-	dat, err := ioutil.ReadFile(conf.StorageTestDir + "/data/test")
+	/*dat, err := ioutil.ReadFile(conf.StorageTestDir + "/data/test")
 	if err != nil {
 		fmt.Println(err)
 		t.Errorf("TestStorage: upload file read error")
@@ -40,13 +43,14 @@ func TestStorage(t *testing.T) {
 		fmt.Println("Got: ", dat)
 		t.Errorf("TestStorage: upload file content error")
 	}
+	*/
 	fmt.Println("TestStorage: test storage download")
 	s, err2 := storage.Download("test")
 	if err2 != nil {
 		fmt.Println(err2)
 		t.Errorf("storage download error")
 	}
-	dat, err = ioutil.ReadFile("test")
+	dat, err := ioutil.ReadFile("test")
 	if err != nil {
 		fmt.Println(err)
 		t.Errorf("TestStorage: downloaded file read error")
@@ -186,7 +190,7 @@ func TestHostInfo(t *testing.T) {
 	_ = hosts.HostsAction("host_info", "", "")
 }
 
-/*func TestPod(t *testing.T) {
+func TestPod(t *testing.T) {
 	fmt.Println("test Pod add")
 	cmd := []string{"/bin/sleep", "60"}
 	var cont []containers.Container
@@ -196,7 +200,7 @@ func TestHostInfo(t *testing.T) {
 	_ = pods.PodsAction("pod_list", pods.Pod{})
 	fmt.Println("test Pod remove")
 	_ = pods.PodsAction("pod_remove", pod)
-}*/
+}
 
 func TestHost(t *testing.T) {
 	fmt.Println("test host list")

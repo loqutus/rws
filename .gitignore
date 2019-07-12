@@ -5,3 +5,4 @@ build/package/server
 test/data/test
 scripts/server
 ansible/*.retry
+ansible/roles/head/files/client.conf
