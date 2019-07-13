@@ -5,6 +5,8 @@ services:
     ports:
       - "8888:8888"
     volumes:
+      - "/etc/hosts:/etc/hosts"
+      - "/etc/nsswitch.conf:/etc/nsswitch.conf"
       - "/var/run/docker.sock:/var/run/docker.sock"
       - "/etc/hostname:/etc/hostname"
       - "/data:/home/rusik/go/src/github.com/loqutus/rws/test/data"

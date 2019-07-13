@@ -13,6 +13,7 @@ import (
 	"github.com/loqutus/rws/pkg/client/storage"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"testing"
 )
 
@@ -20,7 +21,7 @@ func TestHosts(t *testing.T) {
 	fmt.Println("TestHosts: add hosts")
 	hosts.HostsAction("host_add", "localhost", "8888")
 	for i := 1; i <= 5; i++ {
-		hosts.HostsAction("host_add", "pi"+string(i), "8888")
+		hosts.HostsAction("host_add", "pi"+strconv.Itoa(i), "8888")
 	}
 }
 
@@ -113,7 +114,7 @@ func ListLocalContainers() ([]types.Container, error) {
 func TestContainer(t *testing.T) {
 	fmt.Println("test container run")
 	cmd := []string{"/bin/sleep", "60"}
-	containerID := containers.ContainerAction("container_run", "alpine", "test", cmd)
+	containerID := containers.ContainerAction("container_run", "arm32v6/alpine", "test", cmd)
 	localContainers1, err := ListLocalContainers()
 	if err != nil {
 		panic(err)
