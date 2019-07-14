@@ -1,10 +1,26 @@
 {{define "index"}}
     <!DOCTYPE html>
     <html lang="en">
+        {{template "header"}}
         <body>
+            {{template "navbar"}}
+            <div id="navbar" class="collapse navbar-collapse">
+                <ul class="nav navbar-nav">
+                    <li class="active"><a href="/web">Overview</a></li>
+                    <li><a href="/web/pods">Pods</a></li>
+                    <li><a href="/web/containers">Containers</a></li>
+                    <li><a href="/web/storage">Storage</a></li>
+                    <li><a href="/web/hosts">Hosts</a></li>
+                </ul>
+            </div>
+            </div>
+            </nav>
             <div class="container">
                 <div class="starter-template">
-                    <h1>{{.HostsCount}}</h1>
+                    Hosts: {{.HostsCount}}<br>
+                    Pods: {{.PodsCount}}<br>
+                    Containers: {{.ContainersCount}}<br>
+                    Files: {{.FilesCount}}<br>
                 </div>
             </div>
         </body>

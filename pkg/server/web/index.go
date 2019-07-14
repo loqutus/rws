@@ -13,7 +13,7 @@ import (
 
 type IndexInfo struct {
 	HostsCount      int
-	Podscount       int
+	PodsCount       int
 	ContainersCount int
 	FilesCount      int
 }
@@ -80,7 +80,7 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	II := IndexInfo{hostsCount, podsCount, containersCount, filesCount}
 	tmpl := template.New("index")
-	tmpl , err = tmpl.ParseFiles("/web/index.html")
+	tmpl , err = tmpl.ParseFiles("/web/index.html", "/web/inc/header.html", "/web/inc/navbar.html")
 	if err != nil{
 		log.Println("template.ParseFiles error")
 		log.Println(err)
