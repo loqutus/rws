@@ -12,16 +12,16 @@ import (
 )
 
 type IndexInfo struct {
-	hostsCount      int
-	podscount       int
-	containersCount int
-	filesCount      int
+	HostsCount      int
+	Podscount       int
+	ContainersCount int
+	FilesCount      int
 }
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("web.IndexHandler")
 	var hostsCount, podsCount, containersCount, filesCount int
-	hsts := make(map[string]string)
+	var hsts []map[string]string
 	hostsString, err := hosts.ListHosts()
 	if err != nil {
 		log.Println("IndexHandler: HostsList error")
@@ -80,7 +80,7 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	II := IndexInfo{hostsCount, podsCount, containersCount, filesCount}
 	tmpl := template.New("index")
-	tmpl , err = template.ParseFiles("web/index.html")
+	tmpl , err = tmpl.ParseFiles("/web/index.html")
 	if err != nil{
 		log.Println("template.ParseFiles error")
 		log.Println(err)
