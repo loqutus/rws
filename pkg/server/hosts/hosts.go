@@ -160,19 +160,18 @@ func HostRemoveHandler(w http.ResponseWriter, r *http.Request) {
 
 func ListHosts() (string, error) {
 	log.Println(1, "ListHosts")
+	result := make(map[string]string)
 	hosts, err := etcd.ListDir("/rws/hosts")
 	if err != nil {
 		log.Println(1, "etcd.ListDir error")
 		log.Println(err)
 		return "", err
 	}
-	var l []map[string]string
-	for _, k := range hosts {
-		h := map[string]string{k.Key: k.Value}
-		l = append(l, h)
-	}
-	if len(l) > 0 {
-		sm, err2 := json.Marshal(l)
+	if len(hosts) > 0 {
+		for _, v := range hosts{
+			result[v.Key] = v.Value
+		}
+		sm, err2 := json.Marshal(result)
 		if err2 != nil {
 			return "", err2
 		}
