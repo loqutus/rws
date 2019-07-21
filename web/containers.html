@@ -1,4 +1,4 @@
-{{define "hosts"}}
+{{define "containers"}}
     <!DOCTYPE html>
     <html lang="en">
     {{ template "header" }}
@@ -28,7 +28,7 @@
                     <th>Cmd</th>
                     <th>ID</th>
                 </tr>
-                {{range .Hosts}}
+                {{range .Containers}}
                     <tr>
                         <th>{{.Name}}</th>
                         <th>{{.Image}}</th>

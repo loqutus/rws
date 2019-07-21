@@ -2,16 +2,13 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/loqutus/rws/pkg/server/containers"
 	"html/template"
 	"log"
 	"net/http"
 	"strings"
 )
-
-type ContainersInfo struct {
-	Containers []containers.Container
-}
 
 type WebContainer struct {
 	Image  string
@@ -30,7 +27,7 @@ type WebContainersInfo struct {
 
 func ContainersHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("web.ContainersHandler")
-	var cnts map[string]string
+	var cnts []containers.Container
 	containersString, err := containers.ListAllContainers()
 	if err != nil {
 		log.Println("ContainersHandler: ListAllContainers error")
@@ -42,21 +39,12 @@ func ContainersHandler(w http.ResponseWriter, r *http.Request) {
 			log.Println(err2)
 		}
 	}
-	var CI ContainersInfo
+	fmt.Println(cnts)
 	var WC WebContainersInfo
-	for _, v := range cnts {
-		var c containers.Container
-		err := json.Unmarshal([]byte(v), &c)
-		if err != nil {
-			log.Println("ContainersHandler: json.Unmarshal c error")
-			log.Println(err)
-			continue
-		}
-		CI.Containers = append(CI.Containers, c)
+	for _, c := range cnts {
+		WC.Containers = append(WC.Containers, WebContainer{Name: c.Name, Image: c.Image, Disk: ByteCountBinary(c.Disk), Memory: ByteCountBinary(c.Memory), Cores: c.Cores, Host: c.Host, ID: c.ID[0:5], Cmd: strings.Join(c.Cmd, " ")})
 	}
-	for _, c := range CI.Containers {
-		WC.Containers = append(WC.Containers, WebContainer{Name: c.Name, Image: c.Image, Disk: ByteCountBinary(c.Disk), Memory: ByteCountBinary(c.Memory), Cores: c.Cores, Host: c.Host, ID: c.ID, Cmd: strings.Join(c.Cmd, " ")})
-	}
+	fmt.Println(WC)
 	tmpl := template.New("containers")
 	tmpl, err = tmpl.ParseFiles("/web/containers.html", "/web/inc/header.html", "/web/inc/navbar.html")
 	if err != nil {
