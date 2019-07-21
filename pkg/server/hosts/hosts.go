@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/loqutus/rws/pkg/server/conf"
 	"github.com/loqutus/rws/pkg/server/etcd"
 	"github.com/loqutus/rws/pkg/server/utils"
 	"github.com/shirou/gopsutil/cpu"
@@ -209,7 +208,11 @@ func HostInfo() (string, error) {
 	if err3 != nil {
 		return "", err3
 	}
-	name := conf.LocalHostName
+	nameBytes, err := ioutil.ReadFile("/etc/hostname")
+	if err != nil {
+		return "", err
+	}
+	name := string(nameBytes)
 	var c = Host{name, di.Free, mi.Available, uint64(len(ci))}
 	b, err := json.Marshal(c)
 	return string(b), err

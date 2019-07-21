@@ -36,6 +36,7 @@ func main() {
 	http.HandleFunc("/host_info", hosts.HostInfoHandler)
 	http.HandleFunc("/web", web.IndexHandler)
 	http.HandleFunc("/web/hosts", web.HostsHandler)
+	http.HandleFunc("/web/containers", web.ContainersHandler)
 	if err := http.ListenAndServe(conf.Addr, nil)
 	err != nil {
 		panic(err)

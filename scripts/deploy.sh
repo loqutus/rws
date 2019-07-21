@@ -20,6 +20,7 @@ docker-compose -f docker-compose.yml up -d
 for i in $(seq 2 5); do
     scp docker-compose.yml pi$i:~/
     ssh pi$i docker-compose -f docker-compose.yml down --remove-orphans
+    ssh pi$i docker pull loqutus/rws
     ssh pi$i docker-compose -f docker-compose.yml up -d
 done
 sleep 2
