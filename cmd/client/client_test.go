@@ -184,6 +184,9 @@ func TestContainer(t *testing.T) {
 	}
 	fmt.Println("container_remove")
 	_ = containers.ContainerAction("container_remove", "", "test", cmd)
+	for i := 1; i < 10; i++ {
+		_ = containers.ContainerAction("container_run", "arm32v6/alpine", "test"+strconv.Itoa(i), []string{"/bin/sleep", "60"})
+	}
 }
 
 func TestHostInfo(t *testing.T) {
