@@ -10,12 +10,13 @@ import (
 
 type Host struct {
 	Name string
+	Port uint64
 }
 
-func HostsAction(action, hostName, hostPort string) string {
+func HostsAction(action string, hostName string, hostPort uint64) string {
 	var resp []byte
 	var err error
-	h := Host{hostName + ":" + hostPort}
+	h := Host{hostName, hostPort}
 	b := new(bytes.Buffer)
 	err = json.NewEncoder(b).Encode(h)
 	if err != nil {

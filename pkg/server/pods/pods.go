@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -77,7 +78,7 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if found == true {
 		utils.Fail("PodAddHandler: pod already exists", errors.New("pod already exists"), w)
- 		return
+		return
 	}
 	hostsDir, err := etcd.ListDir("/rws/hosts/")
 	if err != nil {
@@ -89,9 +90,16 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 		if i >= p.Count {
 			break
 		}
-		keySplit := strings.Split(h.Key, "/")
-		keyName := keySplit[len(keySplit)-1]
-		url := fmt.Sprintf("http://" + keyName + "/host_info")
+		hostString, err := etcd.GetKey(h.Key)
+		if err != nil {
+			utils.Fail("PodAddHandler: etcdctl.GetKey error", err, w)
+		}
+		var h hosts.Host
+		err = json.Unmarshal([]byte(hostString), &h)
+		if err != nil {
+			utils.Fail("PodAddHandler: json.Unmarshal error", err, w)
+		}
+		url := fmt.Sprintf("http://" + h.Name + ":" + strconv.FormatUint(h.Port, 10) + "/host_info")
 		resp, err := http.Get(url)
 		if err != nil {
 			utils.Fail("PodAddHandler: http.get error", err, w)
@@ -112,12 +120,10 @@ func PodAddHandler(w http.ResponseWriter, r *http.Request) {
 		if ThatHost.Disk >= p.Disk &&
 			ThatHost.Cores >= p.Cores &&
 			ThatHost.Memory >= p.Memory {
-			keySplit := strings.Split(h.Key, "/")
-			keyName := keySplit[len(keySplit)-1]
-			url := "http://" + keyName + "/container_run"
+			url := "http://" + h.Name + ":" + strconv.FormatUint(h.Port, 10) + "/container_run"
 			s := uniuri.New()
 			pName := p.Name + "_" + s
-			c := containers.Container{p.Image, pName, p.Disk, p.Memory, p.Cores, keyName, "", p.Cmd}
+			c := containers.Container{p.Image, pName, p.Disk, p.Memory, p.Cores, h.Name, "", p.Cmd}
 			b, err2 := json.Marshal(c)
 			if err2 != nil {
 				log.Println("PodAddHandler: json.Marshal error")
@@ -242,10 +248,15 @@ func ListPods() (string, error) {
 		log.Println("Etcd.ListDir error")
 		return "", err
 	}
-	var l []map[string]string
+	var l []Pod
 	for _, k := range pods {
-		p := map[string]string{k.Key: k.Value}
-		l = append(l, p)
+		var x Pod
+		err := json.Unmarshal([]byte(k.Value), &x)
+		if err != nil {
+			log.Println("ListPods: json.Unmarshal error")
+			return "", err
+		}
+		l = append(l, x)
 	}
 	if len(l) < 0 {
 		return "{}", nil

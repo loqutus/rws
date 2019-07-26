@@ -17,6 +17,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -31,11 +32,11 @@ type Container struct {
 	Cmd    []string
 }
 
-func GetHostContainers(host string) ([]Container, error) {
-	url := "http://" + host + "/container_list_local"
+func GetHostContainers(host string, port uint64) ([]Container, error) {
+	url := "http://" + host + ":" + strconv.FormatUint(port, 10) + "/container_list_local"
 	body, err := http.Get(url)
 	if err != nil {
-		log.Println(1, "get error")
+		log.Println(1, "GetHostContainers: http.get error")
 		log.Println(1, body)
 		return []Container{}, err
 	}
@@ -171,6 +172,9 @@ func ListAllContainers() (string, error) {
 			return "", err
 		}
 		l = append(l, x)
+	}
+	if len(l) < 0{
+		return "{}", nil
 	}
 	b, err2 := json.Marshal(l)
 	if err2 != nil {

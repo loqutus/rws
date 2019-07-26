@@ -12,17 +12,19 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
 type Host struct {
 	Name   string
+	Port uint64
 	Disk   uint64
 	Memory uint64
 	Cores  uint64
 }
 
-func AddHost(hostName string) error {
+func AddHost(hostName string, hostPort uint64) error {
 	log.Println(1, "Host add")
 	dir, err := etcd.ListDir("/rws/hosts")
 	if err != nil {
@@ -40,11 +42,12 @@ func AddHost(hostName string) error {
 	if found == true {
 		return errors.New("host already exists")
 	}
-	HostInfo, err3 := GetHostInfo(hostName)
+	HostInfo, err3 := GetHostInfo(hostName, hostPort)
 	if err3 != nil {
 		log.Println(1, "AddHost: host info get error")
 		return err3
 	}
+	HostInfo.Port = hostPort
 	b, err4 := json.Marshal(HostInfo)
 	if err4 != nil {
 		log.Println(1, "AddHost: host info json marshal error")
@@ -64,8 +67,8 @@ func AddHost(hostName string) error {
 	return nil
 }
 
-func GetHostInfo(host string) (Host, error) {
-	url := "http://" + host + "/host_info"
+func GetHostInfo(host string, hostPort uint64) (Host, error) {
+	url := "http://" + host + ":" + strconv.FormatUint(hostPort, 10) + "/host_info"
 	body, err := http.Get(url)
 	if err != nil {
 		log.Println(1, "GetHostInfo: get error")
@@ -92,7 +95,7 @@ func HostAddHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	err2 := AddHost(h.Name)
+	err2 := AddHost(h.Name, h.Port)
 	if err2 == nil {
 		w.WriteHeader(http.StatusOK)
 		_, err = fmt.Fprintf(w, "HostAddHandler: OK")
@@ -212,8 +215,8 @@ func HostInfo() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	name := string(nameBytes)
-	var c = Host{name, di.Free, mi.Available, uint64(len(ci))}
+	name := strings.TrimSpace(string(nameBytes))
+	var c = Host{name, 0, di.Free, mi.Available, uint64(len(ci))}
 	b, err := json.Marshal(c)
 	return string(b), err
 }

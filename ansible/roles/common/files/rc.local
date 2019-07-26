@@ -1,6 +1,5 @@
 #!/bin/sh -e
 
 swapoff -a
-/usr/local/bin/nat.sh
 
 exit 0

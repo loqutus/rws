@@ -45,12 +45,12 @@ func ContainersHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl := template.New("containers")
 	tmpl, err = tmpl.ParseFiles("/web/containers.html", "/web/inc/header.html", "/web/inc/navbar.html")
 	if err != nil {
-		log.Println("template.ParseFiles error")
+		log.Println("ContainerHandler: template.ParseFiles error")
 		log.Println(err)
 	}
 	err = tmpl.Execute(w, WC)
 	if err != nil {
-		log.Println("HostsHandler: tmpl.Execute error")
+		log.Println("ContainersHandler: tmpl.Execute error")
 		log.Println(err)
 	}
 }

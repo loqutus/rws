@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/loqutus/rws/pkg/server/containers"
 	"github.com/loqutus/rws/pkg/server/etcd"
 	"github.com/loqutus/rws/pkg/server/hosts"
@@ -84,7 +85,8 @@ func Scheduler() {
 			log.Println("scheduler: Pod " + p.Name + " should have " + string(p.Count) + " containers")
 			var foundContainers uint64
 			for _, h := range hostsSlice {
-				hostRunningContainers, err4 := containers.GetHostContainers(h.Name)
+				fmt.Println(h.Name)
+				hostRunningContainers, err4 := containers.GetHostContainers(h.Name, h.Port)
 				if err4 != nil {
 					log.Println("scheduler: getHostContainers error")
 					log.Println(err4)

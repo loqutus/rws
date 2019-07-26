@@ -16,12 +16,12 @@ var HostName = conf.HostName
 func main() {
 	// client --type storage --action upload --name file
 	// client --type storage --action list
-	var action, name, image, port, cmd string
-	var cores, disk, memory, count uint64
+	var action, name, image, cmd string
+	var cores, disk, memory, count, port uint64
 	flag.StringVar(&action, "action", "", conf.Actions)
 	flag.StringVar(&image, "image", "", "redis or mysql")
 	flag.StringVar(&name, "name", "", "container/file/host name")
-	flag.StringVar(&port, "port", "", "host port")
+	flag.Uint64Var(&port, "port", 0, "host port")
 	flag.Uint64Var(&cores, "cores", 1, "cores for each container in Pod")
 	flag.Uint64Var(&disk, "disk", 1, "disk for each container in Pod")
 	flag.Uint64Var(&memory, "memory", 1, "memory for each container in Pod")

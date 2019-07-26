@@ -19,9 +19,9 @@ import (
 
 func TestHosts(t *testing.T) {
 	fmt.Println("TestHosts: add hosts")
-	hosts.HostsAction("host_add", "localhost", "8888")
+	hosts.HostsAction("host_add", "localhost", 8888)
 	for i := 1; i <= 5; i++ {
-		hosts.HostsAction("host_add", "pi"+strconv.Itoa(i), "8888")
+		hosts.HostsAction("host_add", "pi"+strconv.Itoa(i), 8888)
 	}
 }
 
@@ -191,7 +191,7 @@ func TestContainer(t *testing.T) {
 
 func TestHostInfo(t *testing.T) {
 	fmt.Println("test host info")
-	_ = hosts.HostsAction("host_info", "", "")
+	_ = hosts.HostsAction("host_info", "", 0)
 }
 
 func TestPod(t *testing.T) {
@@ -204,11 +204,14 @@ func TestPod(t *testing.T) {
 	_ = pods.PodsAction("pod_list", pods.Pod{})
 	fmt.Println("test Pod remove")
 	_ = pods.PodsAction("pod_remove", pod)
+	var cont1 []containers.Container
+	pod = pods.Pod{"myfancypod", "alpine", 1, 1, 1, 1, cmd, cont1}
+	_ = pods.PodsAction("pod_add", pod)
 }
 
 func TestHost(t *testing.T) {
 	fmt.Println("test host list")
-	_ = hosts.HostsAction("host_list", "", "")
+	_ = hosts.HostsAction("host_list", "", 0)
 	fmt.Println("test host remove")
-	_ = hosts.HostsAction("host_remove", "localhost", "8888")
+	_ = hosts.HostsAction("host_remove", "localhost", 8888)
 }
