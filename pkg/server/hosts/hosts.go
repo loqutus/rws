@@ -57,6 +57,7 @@ func AddHost(hostName string, hostPort uint64) error {
 	if found == false {
 		err2 := etcd.CreateKey("/rws/hosts/"+hostName, HostInfoString)
 		if err2 != nil {
+			log.Println("AddHost: etcd.CreateKey error")
 			return err2
 		}
 		log.Println(1, "AddHost: host "+hostName+" added")

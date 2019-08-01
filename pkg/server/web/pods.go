@@ -2,7 +2,6 @@ package web
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/loqutus/rws/pkg/server/containers"
 	"github.com/loqutus/rws/pkg/server/pods"
 	"html/template"
@@ -44,7 +43,6 @@ func PodsHandler(w http.ResponseWriter, r *http.Request) {
 	for _, p := range pds {
 		WP.Pods = append(WP.Pods, WebPod{Name: p.Name, Image: p.Image, Disk: ByteCountBinary(p.Disk), Memory: ByteCountBinary(p.Memory), Cores: p.Cores, Cmd: strings.Join(p.Cmd, " "), Containers:p.Containers})
 	}
-	fmt.Println(podsString)
 	tmpl := template.New("pods")
 	tmpl, err = tmpl.ParseFiles("/web/pods.html", "/web/inc/header.html", "/web/inc/navbar.html")
 	if err != nil {

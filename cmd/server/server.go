@@ -38,6 +38,7 @@ func main() {
 	http.HandleFunc("/web/hosts", web.HostsHandler)
 	http.HandleFunc("/web/containers", web.ContainersHandler)
 	http.HandleFunc("/web/pods", web.PodsHandler)
+	http.HandleFunc("/web/storage", web.StorageHandler)
 	if err := http.ListenAndServe(conf.Addr, nil)
 	err != nil {
 		panic(err)
