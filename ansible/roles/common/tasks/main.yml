@@ -59,11 +59,5 @@
   service: name=ssh state=restarted
   when: sshd_config.changed
 
-- name: create /data directory
-  file: path=/data state=directory
-
-- name: mount flash on /data
-  mount: path=/data src=/dev/sda fstype=xfs state=mounted
-
 - name: copy rc.local
   copy: src=rc.local dest=/etc/rc.local mode=755

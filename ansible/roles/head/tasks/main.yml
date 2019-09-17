@@ -32,9 +32,3 @@
 
 - name: copy bashrc
   copy: src=.bashrc dest=/home/rusik/.bashrc owner=rusik
-
-- name: copy openvpn client conf
-  copy: src=client.conf dest=/etc/openvpn/
-
-- name: start openvpn service
-  service: name=openvpn@client state=started enabled=true
